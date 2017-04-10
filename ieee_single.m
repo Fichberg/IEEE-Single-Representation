@@ -129,7 +129,7 @@ function value = floating_point_number(user_input)
 
     # Fraction part
     index = floating_point_position + 1;
-    while index < input_size
+    while index <= size
       if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
         number += str2num(user_input(index)) * (2 ** ((index - floating_point_position) * (-1)));
       else
@@ -161,7 +161,7 @@ function value = floating_point_number(user_input)
 
     # Fraction part
     index = floating_point_position + 1;
-    while index < input_size
+    while index <= size
       if isstrprop(user_input(index), "digit")
         number += str2num(user_input(index)) * (10 ** ((index - floating_point_position) * (-1)));
       else
