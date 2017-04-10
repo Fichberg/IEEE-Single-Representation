@@ -15,21 +15,28 @@ function main()
       continue;
     endwhile
     a_value = input_to_number(a);
+    # TODO: word_vector of a. print A = a_word_vector
     while length(b = input("Input value for B:\n>> ", "s")) <= 0
       continue;
     endwhile
     b_value = input_to_number(b);
+    # TODO: word_vector of b. print B = b_word_vector
     while length(op = input("Select an operation (+ or -):\n>> ", "s")) <= 0
       continue;
     endwhile
     #word_vector = operate(op, a_value, b_value);
     print_word(word_vector);
+    # TODO: word_vector of a op b. print R = r_word_vector
   endwhile
 endfunction
 
 function value = input_to_number(user_input)
-  user_input = strtrim(user_input);
+  if strncmpi("exit", user_input = strtrim(user_input), 4) == 1
+    exit
+  endif
+
   occurrences = strchr(user_input, '.');
+
   if length(occurrences) == 0
     value = integer_number(user_input);
   elseif length(occurrences) == 1
@@ -124,7 +131,7 @@ function value = floating_point_number(user_input)
     index = floating_point_position + 1;
     while index < input_size
       if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
-        number += str2num(user_input(index)) * (2 ** (index * (-1)));
+        number += str2num(user_input(index)) * (2 ** ((index - floating_point_position) * (-1)));
       else
         printf("Invalid character found. Was expecting '0' or '1' for binary format input. Terminating execution.");
         exit;
@@ -156,7 +163,7 @@ function value = floating_point_number(user_input)
     index = floating_point_position + 1;
     while index < input_size
       if isstrprop(user_input(index), "digit")
-        number += str2num(user_input(index)) * (10 ** (index * (-1)));
+        number += str2num(user_input(index)) * (10 ** ((index - floating_point_position) * (-1)));
       else
         printf("Invalid character found. Was expecting an integer. Terminating execution.");
         exit;
