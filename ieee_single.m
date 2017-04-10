@@ -26,20 +26,13 @@ function value = input2decimal(user_input)
 
   # May be a binary number
   if user_input(input_size) == 'b'
-    index = input_size - 1;
+    size = index = input_size - 1;
     number = 0;
     while index > 0
-      if isstrprop(user_input(index), "digit")
-        if user_input(index) == '1'
-          number += 1 * (2 ** (input_size - 1 - index));
-        elseif user_input(index) == '0'
-          number += 0 * (2 ** (input_size - 1 - index));
-        else
-          printf("Invalid character found. Was expecting '0' or '1'. Terminating execution.");
-          exit;
-        endif
+      if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
+        number += str2num(user_input(index)) * (2 ** (size - index));
       else
-        printf("Invalid character found. Was expecting '0' or '1'. Terminating execution.");
+        printf("Invalid character found. Was expecting '0' or '1' for binary format input. Terminating execution.");
         exit;
       endif
       index--;
