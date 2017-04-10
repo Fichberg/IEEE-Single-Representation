@@ -27,6 +27,7 @@ function main()
     #word_vector = operate(op, a_value, b_value);
     print_word(word_vector);
     # TODO: word_vector of a op b. print R = r_word_vector
+    printf("AQUI %f\n", a_value);
   endwhile
 endfunction
 
