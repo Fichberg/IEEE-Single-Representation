@@ -32,11 +32,11 @@ endfunction
 
 function value = input_to_number(user_input)
   if strncmpi("exit", user_input = strtrim(user_input), 4) == 1
-    exit
+    printf("All done. Terminating execution.");
+    exit;
   endif
 
   occurrences = strchr(user_input, '.');
-
   if length(occurrences) == 0
     value = integer_number(user_input);
   elseif length(occurrences) == 1
