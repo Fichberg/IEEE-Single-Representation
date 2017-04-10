@@ -11,11 +11,11 @@ function main()
   word_vector = zeros(1,32);
 
   while true
-    a = scan_keyboard("Input value for A:\n>> ");
+    a = input("Input value for A:\n>> ", "s");
     a_value = input2decimal(a);
-    b = scan_keyboard("Input value for B:\n>> ");
+    b = input("Input value for B:\n>> ", "s");
     b_value = input2decimal(b);
-    op = scan_keyboard("Select an operation (+ or -):\n>> ");
+    op = input("Select an operation (+ or -):\n>> ", "s");
     #word_vector = operate(op, a_value, b_value);
     print_word(word_vector);
   endwhile
@@ -64,10 +64,6 @@ function value = input2decimal(user_input)
   endif
 
   value = number;
-endfunction
-
-function user_input = scan_keyboard(msg)
-  user_input = input(msg, "s");
 endfunction
 
 function print_word(word_vector)
