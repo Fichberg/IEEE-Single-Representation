@@ -8,26 +8,107 @@
 
 function main()
   printf("\nSimple IEEE Single Representation program. Usage information can be found in the documentation.\n\n")
-  word_vector = zeros(1,32);
+  #a_word_vector = b_word_vector = r_word_vector = zeros(1,32);
 
   while true
     while length(a = input("Input value for A:\n>> ", "s")) <= 0
       continue;
     endwhile
     a_value = input_to_number(a);
-    # TODO: word_vector of a. print A = a_word_vector
+    a_word_vector = number_to_ieee_single(a_value);
+    print_word(a_word_vector);
     while length(b = input("Input value for B:\n>> ", "s")) <= 0
       continue;
     endwhile
     b_value = input_to_number(b);
-    # TODO: word_vector of b. print B = b_word_vector
+    b_word_vector = number_to_ieee_single(b_value);
+    print_word(b_word_vector);
     while length(op = input("Select an operation (+ or -):\n>> ", "s")) <= 0
       continue;
     endwhile
     #word_vector = operate(op, a_value, b_value);
-    print_word(word_vector);
-    # TODO: word_vector of a op b. print R = r_word_vector
+    #print_word(r_word_vector);
   endwhile
+endfunction
+
+function word_vector = number_to_ieee_single(number)
+  exp = 0;
+  fractional_part = abs(number) - floor(abs(number));
+  decimal_part = abs(number) - fractional_part;
+
+  if number >= 0
+    word_vector = build_iee_single_representation(decimal_part, fractional_part, exp, "0");
+  else
+    word_vector = build_iee_single_representation(decimal_part, fractional_part, exp, "1");
+  endif
+endfunction
+
+function word_vector = build_iee_single_representation(decimal, fractional, exp, sign_bstring)
+  dec = decimal;
+  significand_bstring = "";
+
+  # Significand bits
+
+  # Decimal part
+  while dec > 0
+    remainder = rem(dec, 2);
+    dec = floor(dec / 2);
+    significand_bstring = strcat(num2str(remainder), significand_bstring);
+  endwhile
+
+  if length(significand_bstring) > 0
+    exp = length(significand_bstring) - 1;
+    temp = significand_bstring;
+    significand_bstring = "";
+    i = 0;
+    while i < exp
+      significand_bstring = strcat(significand_bstring, temp(i + 2));
+      i++;
+    endwhile
+  endif
+
+  # Fractionary part
+  if strcmp(significand_bstring, "") && decimal == 0
+    leading_zero = 1;
+  else
+    leading_zero = 0;
+  endif
+
+  counter = 0;
+  while fractional != 0 && counter < 23
+    fractional = fractional * 2;
+    if fractional >= 1
+      fractional = fractional - floor(fractional);
+      # Hidden bit
+      if leading_zero
+        leading_zero = 0;
+        exp--;
+        continue;
+      endif
+      significand_bstring = strcat(significand_bstring, "1");
+
+    else
+      if leading_zero
+        exp--;
+        continue;
+      endif
+      significand_bstring = strcat(significand_bstring, "0");
+    endif
+
+    counter++;
+  endwhile
+
+  # Fill remaining bits with bit 0
+  while counter < 23
+    significand_bstring = strcat(significand_bstring, "0");
+    counter++;
+  endwhile
+
+  # Exponent bits
+  exp_bstring = dec2bin(127 + exp, 8);
+
+  # Build word
+  word_vector = strcat(sign_bstring ,strcat(exp_bstring, significand_bstring));
 endfunction
 
 function value = input_to_number(user_input)
@@ -36,11 +117,42 @@ function value = input_to_number(user_input)
     exit;
   endif
 
+  # Handle sign
+  sign = 1;
+  if user_input(1) == '-'
+    sign = -1;
+    temp = user_input;
+    user_input = "";
+    i = 2;
+    while i <= length(temp)
+      user_input = strcat(user_input, temp(i));
+      i++;
+    endwhile
+    if i == 2
+      printf("Invalid input. Found a '-' sign but no digit. Terminating execution.");
+      exit;
+    endif
+  elseif user_input(1) == '+'
+    temp = user_input;
+    user_input = "";
+    i = 2;
+    while i <= length(temp)
+      user_input = strcat(user_input, temp(i));
+      i++;
+    endwhile
+    if i == 2
+      printf("Invalid input. Found a '+' sign but no digit. Terminating execution.");
+      exit;
+    endif
+  endif
+
   occurrences = strchr(user_input, '.');
   if length(occurrences) == 0
     value = integer_number(user_input);
+    value = value * sign;
   elseif length(occurrences) == 1
     value = floating_point_number(user_input);
+    value = value * sign;
   else
     printf("Invalid character found. Maximum number of '.' character allowed is 1. Terminating execution.");
     exit;
@@ -69,7 +181,7 @@ function value = integer_number(user_input)
       index--;
     endwhile
 
-  # May be a decimal number
+  # May be a real number
   elseif user_input(input_size) == 'd' || isstrprop(user_input(input_size), "digit")
     if user_input(input_size) == 'd'
       size = input_size - 1;
@@ -116,7 +228,7 @@ function value = floating_point_number(user_input)
     size = input_size - 1;
     index = floating_point_position - 1;
 
-    # Whole part
+    # Decimal part
     while index > 0
       if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
         number += str2num(user_input(index)) * (2 ** (floating_point_position - 1 - index));
@@ -139,7 +251,7 @@ function value = floating_point_number(user_input)
       index++;
     endwhile
 
-  # May be a decimal number
+  # May be a real number
   elseif user_input(input_size) == 'd' || isstrprop(user_input(input_size), "digit")
     if user_input(input_size) == 'd'
       size = input_size - 1;
@@ -148,7 +260,7 @@ function value = floating_point_number(user_input)
     endif
     index = floating_point_position - 1;
 
-    # Whole part
+    # Decimal part
     while index > 0
       if isstrprop(user_input(index), "digit")
         number += str2num(user_input(index)) * (10 ** (floating_point_position - 1 - index));
@@ -184,9 +296,9 @@ function print_word(word_vector)
   sign = word_vector(1);
   exponent = word_vector(2:9);
   significand = word_vector(10:32);
-  printf("[  %d  |  ", sign);
-  printf("%d  ", exponent); printf("|  ");
-  printf("%d  ", significand); printf("]\n");
+  printf("[  %c  |  ", sign);
+  printf("%c  ", exponent); printf("|  ");
+  printf("%c  ", significand); printf("]\n");
 endfunction
 
 main();
