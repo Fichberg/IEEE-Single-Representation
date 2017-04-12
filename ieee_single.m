@@ -12,13 +12,13 @@ function main()
 
   while true
     a = scan_keyboard("Input value for A:\n>> ");
-    a_value = input_to_number(a);
-    a_word_vector = number_to_ieee_single(a_value);
+    [a_value, a_sign] = input_to_number(a);
+    a_word_vector = number_to_ieee_single(a_value, a_sign);
     #print_word(a_word_vector);
 
     b = scan_keyboard("Input value for B:\n>> ");
-    b_value = input_to_number(b);
-    b_word_vector = number_to_ieee_single(b_value);
+    [b_value, b_sign] = input_to_number(b);
+    b_word_vector = number_to_ieee_single(b_value, b_sign);
     #print_word(b_word_vector);
 
     op = scan_keyboard("Select an operation (+ or -):\n>> ");
@@ -28,20 +28,22 @@ function main()
 endfunction
 
 # Converts number to IEEE Single Format
-function word_vector = number_to_ieee_single(number)
+function word_vector = number_to_ieee_single(number, sign)
   fractional = abs(number) - floor(abs(number));
   decimal = abs(number) - fractional;
 
-  word_vector = build_iee_single_representation(decimal, fractional);
+  word_vector = build_iee_single_representation(decimal, fractional, sign);
 endfunction
 
 # Constructs string representing the number in IEEE Single Format
-function word_vector = build_iee_single_representation(decimal, fractional)
+function word_vector = build_iee_single_representation(decimal, fractional, sign_bstring)
   # Decimal part
   dec_bstring = dec2bin(decimal);
 
   # Fractional part
   frac_bstring = frac2bin(fractional, 127);
+
+  # Constructs significnd string and exponent string
 
   word_vector = "";
 endfunction
@@ -124,8 +126,24 @@ function pass_if_binary(string)
   endwhile
 endfunction
 
+# Strips sign from input string and return an indicator 1 for + or -1 for -.
+# Returns the absolute value of the number in a string too.
+function [string, sign] = strip_sign_from_string(string)
+  sign = "0";
+  # Strips sign
+  if string(1) == '-' || string(1) == '+'
+    if string(1) == '-'
+      sign = "1";
+    endif
+    string = substr(string, 2);
+  endif
+endfunction
+
 # Converts input string to a number
-function value = input_to_number(string)
+function [value, sign] = input_to_number(string)
+  # Strips sign from string
+  [string, sign] = strip_sign_from_string(string);
+
   # Base 2 number
   if string(length(string)) == 'b' && length(string) > 1
     # Remove 'b' character
