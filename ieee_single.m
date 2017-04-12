@@ -11,287 +11,139 @@ function main()
   #a_word_vector = b_word_vector = r_word_vector = zeros(1,32);
 
   while true
-    while length(a = input("Input value for A:\n>> ", "s")) <= 0
-      continue;
-    endwhile
+    a = scan_keyboard("Input value for A:\n>> ");
     a_value = input_to_number(a);
-    a_word_vector = number_to_ieee_single(a_value);
-    print_word(a_word_vector);
-    while length(b = input("Input value for B:\n>> ", "s")) <= 0
-      continue;
-    endwhile
+    #a_word_vector = number_to_ieee_single(a_value);
+    #print_word(a_word_vector);
+
+    b = scan_keyboard("Input value for B:\n>> ");
     b_value = input_to_number(b);
-    b_word_vector = number_to_ieee_single(b_value);
-    print_word(b_word_vector);
-    while length(op = input("Select an operation (+ or -):\n>> ", "s")) <= 0
-      continue;
-    endwhile
+    #b_word_vector = number_to_ieee_single(b_value);
+    #print_word(b_word_vector);
+
+    op = scan_keyboard("Select an operation (+ or -):\n>> ");
+
     #word_vector = operate(op, a_value, b_value);
     #print_word(r_word_vector);
   endwhile
 endfunction
 
-function word_vector = number_to_ieee_single(number)
-  exp = 0;
-  fractional_part = abs(number) - floor(abs(number));
-  decimal_part = abs(number) - fractional_part;
-
-  if number >= 0
-    word_vector = build_iee_single_representation(decimal_part, fractional_part, exp, "0");
+# Converts input string representing a number in base 2 to an integer number
+function value = integer_binary_number(string)
+  if all(isstrprop(string, "digit"))
+    pass_if_binary(string);
+    value = int64(bin2dec(string));
   else
-    word_vector = build_iee_single_representation(decimal_part, fractional_part, exp, "1");
+    printf("Invalid format. Was expecting a number.");
+    exit;
   endif
 endfunction
 
-function word_vector = build_iee_single_representation(decimal, fractional, exp, sign_bstring)
-  dec = decimal;
-  significand_bstring = "";
-
-  # Significand bits
-
-  # Decimal part
-  while dec > 0
-    remainder = rem(dec, 2);
-    dec = floor(dec / 2);
-    significand_bstring = strcat(num2str(remainder), significand_bstring);
-  endwhile
-
-  if length(significand_bstring) > 0
-    exp = length(significand_bstring) - 1;
-    temp = significand_bstring;
-    significand_bstring = "";
-    i = 0;
-    while i < exp
-      significand_bstring = strcat(significand_bstring, temp(i + 2));
-      i++;
-    endwhile
-  endif
-
-  # Fractionary part
-  if strcmp(significand_bstring, "") && decimal == 0
-    leading_zero = 1;
+# Converts input string representing a number in base 10 to an integer number
+function value = integer_number(string)
+  if all(isstrprop(string, "digit"))
+    value = int64(str2num(string));
   else
-    leading_zero = 0;
+    printf("Invalid format. Was expecting a number.");
+    exit;
   endif
+endfunction
 
-  counter = 0;
-  while fractional != 0 && counter < 23
-    fractional = fractional * 2;
-    if fractional >= 1
-      fractional = fractional - floor(fractional);
-      # Hidden bit
-      if leading_zero
-        leading_zero = 0;
-        exp--;
-        continue;
-      endif
-      significand_bstring = strcat(significand_bstring, "1");
+# Converts input string representing a number in base 2 to a float number
+function value = float_binary_number(dec_string, frac_string)
+  if all(isstrprop(dec_string, "digit")) && all(isstrprop(frac_string, "digit"))
+    pass_if_binary(dec_string); pass_if_binary(frac_string);
+    value = double(bin2dec(dec_string));
 
+    exp = 1;
+    while exp <= length(frac_string)
+      value = value + (double(str2num(frac_string(exp))) * double((2 ** (-1 * exp))));
+      exp++;
+    endwhile
+  else
+    printf("Invalid format. Was expecting a number.");
+    exit;
+  endif
+endfunction
+
+# Converts input string representing a number in base 10 to a float number
+function value = float_number(dec_string, frac_string)
+  if all(isstrprop(dec_string, "digit")) && all(isstrprop(frac_string, "digit"))
+    value = str2double(strcat(dec_string, strcat(".", frac_string)));
+  else
+    printf("Invalid format. Was expecting a number.");
+    exit;
+  endif
+endfunction
+
+# Check whether the string contains only the characters '0' or '1'. If not, terminates execution.
+function pass_if_binary(string)
+  i = 1;
+  while i <= length(string)
+    if string(i) != '0' && string(i) != '1'
+      printf("Invalid format. Was expecting a binary string.");
+      exit;
+    endif
+    i++;
+  endwhile
+endfunction
+
+# Converts input string to a number
+function value = input_to_number(string)
+  # Base 2 number
+  if string(length(string)) == 'b' && length(string) > 1
+    # Remove 'b' character
+    string = substr(string, 1, length(string) - 1);
+
+    occ = strchr(string, '.');
+    # Integer number
+    if length(occ) == 0
+      value = integer_binary_number(string);
+    # Floating point number. Format accepted is [0-1]+\.[0-1]+
+    elseif length(occ) == 1 && occ > 1 && occ < length(string)
+      dec_string = substr(string, 1, occ - 1);
+      frac_string = substr(string, occ + 1);
+      value = float_binary_number(dec_string, frac_string);
+    # Error
     else
-      if leading_zero
-        exp--;
-        continue;
-      endif
-      significand_bstring = strcat(significand_bstring, "0");
+      printf("Invalid format. Bad use of floating point string detected. Accepted format for float is '[0-1]+\.[0-1]+'.");
+      exit;
     endif
 
-    counter++;
-  endwhile
-
-  # Fill remaining bits with bit 0
-  while counter < 23
-    significand_bstring = strcat(significand_bstring, "0");
-    counter++;
-  endwhile
-
-  # Exponent bits
-  exp_bstring = dec2bin(127 + exp, 8);
-
-  # Build word
-  word_vector = strcat(sign_bstring ,strcat(exp_bstring, significand_bstring));
+  # Base 10 number
+  else
+    occ = strchr(string, '.');
+    # Integer number
+    if length(occ) == 0
+      value = integer_number(string);
+    # Floating point number. Format accepted is [0-9]+\.[0-9]+
+    elseif length(occ) == 1 && occ > 1 && occ < length(string)
+      dec_string = substr(string, 1, occ - 1);
+      frac_string = substr(string, occ + 1);
+      value = float_number(dec_string, frac_string);
+    # Error
+    else
+      printf("Invalid format. Bad use of floating point string detected. Accepted format for float is '[0-1]+\.[0-1]+'.");
+      exit;
+    endif
+  endif
 endfunction
 
-function value = input_to_number(user_input)
-  if strncmpi("exit", user_input = strtrim(user_input), 4) == 1
+# Scans user keyboard. If exit command found, terminates program.
+function string = scan_keyboard(message)
+  while length(string = input(message, "s")) <= 0
+    continue;
+  endwhile
+
+  string = strtrim(string);
+
+  if strcmpi(string, "exit")
     printf("All done. Terminating execution.");
     exit;
   endif
-
-  # Handle sign
-  sign = 1;
-  if user_input(1) == '-'
-    sign = -1;
-    temp = user_input;
-    user_input = "";
-    i = 2;
-    while i <= length(temp)
-      user_input = strcat(user_input, temp(i));
-      i++;
-    endwhile
-    if i == 2
-      printf("Invalid input. Found a '-' sign but no digit. Terminating execution.");
-      exit;
-    endif
-  elseif user_input(1) == '+'
-    temp = user_input;
-    user_input = "";
-    i = 2;
-    while i <= length(temp)
-      user_input = strcat(user_input, temp(i));
-      i++;
-    endwhile
-    if i == 2
-      printf("Invalid input. Found a '+' sign but no digit. Terminating execution.");
-      exit;
-    endif
-  endif
-
-  occurrences = strchr(user_input, '.');
-  if length(occurrences) == 0
-    value = integer_number(user_input);
-    value = value * sign;
-  elseif length(occurrences) == 1
-    value = floating_point_number(user_input);
-    value = value * sign;
-  else
-    printf("Invalid character found. Maximum number of '.' character allowed is 1. Terminating execution.");
-    exit;
-  endif
 endfunction
 
-function value = integer_number(user_input)
-  input_size = length(user_input);
-  number = 0;
-
-  if (user_input(input_size) == 'b' || user_input(input_size) == 'd') && input_size  == 1
-    printf("Invalid input format. Missing digits. Terminating execution.");
-    exit
-  endif
-
-  # May be a binary number
-  if user_input(input_size) == 'b'
-    size = index = input_size - 1;
-    while index > 0
-      if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
-        number += str2num(user_input(index)) * (2 ** (size - index));
-      else
-        printf("Invalid character found. Was expecting '0' or '1' for binary format input. Terminating execution.");
-        exit;
-      endif
-      index--;
-    endwhile
-
-  # May be a real number
-  elseif user_input(input_size) == 'd' || isstrprop(user_input(input_size), "digit")
-    if user_input(input_size) == 'd'
-      size = input_size - 1;
-    elseif isstrprop(user_input(input_size), "digit")
-      size = input_size;
-    endif
-    index = size;
-    while index > 0
-      if isstrprop(user_input(index), "digit")
-        number += str2num(user_input(index)) * (10 ** (size - index));
-      else
-        printf("Invalid character found. Was expecting an integer. Terminating execution.");
-        exit;
-      endif
-      index--;
-    endwhile
-
-  # Incorrect value detected on last character. Unexpected string format.
-  else
-    printf("Invalid character found. Check documentation to see the expected input formats. Terminating execution.");
-    exit;
-  endif
-
-  value = number;
-endfunction
-
-function value = floating_point_number(user_input)
-  input_size = length(user_input);
-  floating_point_position = strchr(user_input, '.');
-  number = 0;
-
-  if ((user_input(input_size) == 'b' || user_input(input_size) == 'd') && input_size - floating_point_position == 1) || input_size == floating_point_position
-    printf("Invalid input format. Detected character '.' but no fraction part. Terminating execution.");
-    exit
-  endif
-
-  if (user_input(input_size) == 'b' || user_input(input_size) == 'd') && input_size  == 1
-    printf("Invalid input format. Missing digits. Terminating execution.");
-    exit
-  endif
-
-  # May be a binary number
-  if user_input(input_size) == 'b'
-    size = input_size - 1;
-    index = floating_point_position - 1;
-
-    # Decimal part
-    while index > 0
-      if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
-        number += str2num(user_input(index)) * (2 ** (floating_point_position - 1 - index));
-      else
-        printf("Invalid character found. Was expecting '0' or '1' for binary format input. Terminating execution.");
-        exit;
-      endif
-      index--;
-    endwhile
-
-    # Fraction part
-    index = floating_point_position + 1;
-    while index <= size
-      if isstrprop(user_input(index), "digit") && str2num(user_input(index)) < 2
-        number += str2num(user_input(index)) * (2 ** ((index - floating_point_position) * (-1)));
-      else
-        printf("Invalid character found. Was expecting '0' or '1' for binary format input. Terminating execution.");
-        exit;
-      endif
-      index++;
-    endwhile
-
-  # May be a real number
-  elseif user_input(input_size) == 'd' || isstrprop(user_input(input_size), "digit")
-    if user_input(input_size) == 'd'
-      size = input_size - 1;
-    elseif isstrprop(user_input(input_size), "digit")
-      size = input_size;
-    endif
-    index = floating_point_position - 1;
-
-    # Decimal part
-    while index > 0
-      if isstrprop(user_input(index), "digit")
-        number += str2num(user_input(index)) * (10 ** (floating_point_position - 1 - index));
-      else
-        printf("Invalid character found. Was expecting an integer. Terminating execution.");
-        exit;
-      endif
-      index--;
-    endwhile
-
-    # Fraction part
-    index = floating_point_position + 1;
-    while index <= size
-      if isstrprop(user_input(index), "digit")
-        number += str2num(user_input(index)) * (10 ** ((index - floating_point_position) * (-1)));
-      else
-        printf("Invalid character found. Was expecting an integer. Terminating execution.");
-        exit;
-      endif
-      index++;
-    endwhile
-
-  # Incorrect value detected on last character. Unexpected string format.
-  else
-    printf("Invalid character found. Check documentation to see the expected input formats. Terminating execution.");
-    exit;
-  endif
-
-  value = number;
-endfunction
-
+# Print word (4bytes) of IEEE Single Format that represents a given number
 function print_word(word_vector)
   sign = word_vector(1);
   exponent = word_vector(2:9);
@@ -299,6 +151,48 @@ function print_word(word_vector)
   printf("[  %c  |  ", sign);
   printf("%c  ", exponent); printf("|  ");
   printf("%c  ", significand); printf("]\n");
+endfunction
+
+# Converts number to IEEE Single Format
+function word_vector = number_to_ieee_single(number)
+  printf("%d %d\n",  int64(number), number);
+  fractional = abs(number) - floor(abs(number));
+  decimal = abs(number) - fractional;
+
+  word_vector = build_iee_single_representation(decimal, fractional);
+endfunction
+
+# Constructs string representing the number in IEEE Single Format
+function word_vector = build_iee_single_representation(decimal, fractional)
+  dec_bstring = frac_bstring = "";
+  dec_bits = frac_bits = 0;
+  frac = fractional;
+  dec = decimal;
+
+  # Decimal part
+  while dec > 0 && dec_bits < 23
+    remainder = rem(dec, 2);
+    dec = floor(dec / 2);
+    dec_bstring = strcat(num2str(remainder), dec_bstring);
+    dec_bits++;
+  endwhile
+
+  printf("%s\n", dec_bstring);
+
+  # Fractionary part
+  while frac != 0 && frac_bits < 127
+    frac = frac * 2;
+    if frac >= 1
+      frac = frac - floor(frac);
+      frac_bstring = strcat(frac_bstring, "1");
+    else
+      frac_bstring = strcat(frac_bstring, "0");
+    endif
+
+    frac_bits++;
+  endwhile
+
+  word_vector = "";
 endfunction
 
 main();
