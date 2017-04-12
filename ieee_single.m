@@ -13,18 +13,54 @@ function main()
   while true
     a = scan_keyboard("Input value for A:\n>> ");
     a_value = input_to_number(a);
-    #a_word_vector = number_to_ieee_single(a_value);
+    a_word_vector = number_to_ieee_single(a_value);
     #print_word(a_word_vector);
 
     b = scan_keyboard("Input value for B:\n>> ");
     b_value = input_to_number(b);
-    #b_word_vector = number_to_ieee_single(b_value);
+    b_word_vector = number_to_ieee_single(b_value);
     #print_word(b_word_vector);
 
     op = scan_keyboard("Select an operation (+ or -):\n>> ");
-
     #word_vector = operate(op, a_value, b_value);
     #print_word(r_word_vector);
+  endwhile
+endfunction
+
+# Converts number to IEEE Single Format
+function word_vector = number_to_ieee_single(number)
+  fractional = abs(number) - floor(abs(number));
+  decimal = abs(number) - fractional;
+
+  word_vector = build_iee_single_representation(decimal, fractional);
+endfunction
+
+# Constructs string representing the number in IEEE Single Format
+function word_vector = build_iee_single_representation(decimal, fractional)
+  # Decimal part
+  dec_bstring = dec2bin(decimal);
+
+  # Fractional part
+  frac_bstring = frac2bin(fractional, 127);
+
+  word_vector = "";
+endfunction
+
+# Converts fractionary part of the number to a bitstring with 'len' characters
+function string = frac2bin(fractional, len)
+  string = "";
+  frac_bits = 0;
+  frac = fractional;
+
+  while frac != 0 && frac_bits < len
+    frac = frac * 2;
+    if frac >= 1
+      frac = frac - floor(frac);
+      string = strcat(string, "1");
+    else
+      string = strcat(string, "0");
+    endif
+    frac_bits++;
   endwhile
 endfunction
 
@@ -151,48 +187,6 @@ function print_word(word_vector)
   printf("[  %c  |  ", sign);
   printf("%c  ", exponent); printf("|  ");
   printf("%c  ", significand); printf("]\n");
-endfunction
-
-# Converts number to IEEE Single Format
-function word_vector = number_to_ieee_single(number)
-  printf("%d %d\n",  int64(number), number);
-  fractional = abs(number) - floor(abs(number));
-  decimal = abs(number) - fractional;
-
-  word_vector = build_iee_single_representation(decimal, fractional);
-endfunction
-
-# Constructs string representing the number in IEEE Single Format
-function word_vector = build_iee_single_representation(decimal, fractional)
-  dec_bstring = frac_bstring = "";
-  dec_bits = frac_bits = 0;
-  frac = fractional;
-  dec = decimal;
-
-  # Decimal part
-  while dec > 0 && dec_bits < 23
-    remainder = rem(dec, 2);
-    dec = floor(dec / 2);
-    dec_bstring = strcat(num2str(remainder), dec_bstring);
-    dec_bits++;
-  endwhile
-
-  printf("%s\n", dec_bstring);
-
-  # Fractionary part
-  while frac != 0 && frac_bits < 127
-    frac = frac * 2;
-    if frac >= 1
-      frac = frac - floor(frac);
-      frac_bstring = strcat(frac_bstring, "1");
-    else
-      frac_bstring = strcat(frac_bstring, "0");
-    endif
-
-    frac_bits++;
-  endwhile
-
-  word_vector = "";
 endfunction
 
 main();
