@@ -8,44 +8,96 @@
 
 function main()
   printf("\nSimple IEEE Single Representation program. Usage information can be found in the documentation.\n\n")
-  #a_word_vector = b_word_vector = r_word_vector = zeros(1,32);
 
   while true
     a = scan_keyboard("Input value for A:\n>> ");
     [a_value, a_sign] = input_to_number(a);
-    a_word_vector = number_to_ieee_single(a_value, a_sign);
-    #print_word(a_word_vector);
+    a_ieee_string = number_to_ieee_single(a_value, a_sign);
+    printf("A = "); print_word(a_ieee_string);
 
     b = scan_keyboard("Input value for B:\n>> ");
     [b_value, b_sign] = input_to_number(b);
-    b_word_vector = number_to_ieee_single(b_value, b_sign);
-    #print_word(b_word_vector);
+    b_ieee_string = number_to_ieee_single(b_value, b_sign);
+    printf("B = "); print_word(b_ieee_string);
 
     op = scan_keyboard("Select an operation (+ or -):\n>> ");
-    #word_vector = operate(op, a_value, b_value);
-    #print_word(r_word_vector);
+    #ieee_string = operate(op, a_value, b_value);
+    #print_word(r_ieee_string);
   endwhile
 endfunction
 
 # Converts number to IEEE Single Format
-function word_vector = number_to_ieee_single(number, sign)
+function ieee_string = number_to_ieee_single(number, sign)
   fractional = abs(number) - floor(abs(number));
   decimal = abs(number) - fractional;
 
-  word_vector = build_iee_single_representation(decimal, fractional, sign);
+  ieee_string = build_iee_single_representation(decimal, fractional, sign);
 endfunction
 
 # Constructs string representing the number in IEEE Single Format
-function word_vector = build_iee_single_representation(decimal, fractional, sign_bstring)
+function ieee_string = build_iee_single_representation(decimal, fractional, sign_bstring)
   # Decimal part
   dec_bstring = dec2bin(decimal);
 
   # Fractional part
   frac_bstring = frac2bin(fractional, 127);
 
-  # Constructs significnd string and exponent string
+  # Constructs IEEE Single Fromat string
+  ieee_string = build_ieee_string(sign_bstring, dec_bstring, frac_bstring);
+endfunction
 
-  word_vector = "";
+function ieee_string = build_ieee_string(sign_bstring, dec_bstring, frac_bstring)
+  # Our number N is: |N| < 1 ------> exponent < 0
+  if dec_bstring(1) == "0" && length(dec_bstring) == 1
+    exponent = first_occurence_of_bit_1(frac_bstring);
+    frac_bstring = hide_ho_bit_fractional(frac_bstring, exponent);
+    significand_bstring = build_significand_bstring("", frac_bstring);
+    exponent_bstring = build_exponent_bstring(exponent * (-1));
+    ieee_string = strcat(sign_bstring, strcat(exponent_bstring, significand_bstring));
+  # Our number N is: |N| >= 1 -----> exponent >= 0
+  else
+    dec_bstring = hide_ho_bit_decimal(dec_bstring);
+    exponent = length(dec_bstring);
+    significand_bstring = build_significand_bstring(dec_bstring, frac_bstring);
+    exponent_bstring = build_exponent_bstring(exponent);
+    ieee_string = strcat(sign_bstring, strcat(exponent_bstring, significand_bstring));
+  endif
+endfunction
+
+# Locates the first occurence of the digit 1 in a fracional binary string and returns its index
+function occ = first_occurence_of_bit_1(frac_bstring)
+  occ = strchr(frac_bstring, '1');
+  occ = occ(1);
+endfunction
+
+# Build exponent binary string of size 8. Exponent string is a biased representation, as we
+# store the representation of the number '127 + exponent'
+function exponent_bstring = build_exponent_bstring(exponent)
+  exponent_bstring = dec2bin(exponent + 127);
+  while length(exponent_bstring) < 8
+    exponent_bstring = strcat("0", exponent_bstring);
+  endwhile
+endfunction
+
+# Builds significand binary string concatenating both decimal and fractional binary strings
+# and then truncating it, keeping just the 23 left-most bits.
+function significand_bstring = build_significand_bstring(dec_bstring, frac_bstring)
+  significand_bstring = strcat(dec_bstring, frac_bstring);
+  significand_bstring = substr(significand_bstring, 1, 23);
+endfunction
+
+# Hide High-Order bit from string removing it. It is implicit that the most significant bit is 1
+function frac_bstring = hide_ho_bit_fractional(frac_bstring, exponent)
+  frac_bstring = substr(frac_bstring, exponent + 1);
+endfunction
+
+# Hide High-Order bit from string removing it. It is implicit that the most significant bit is 1
+function dec_bstring = hide_ho_bit_decimal(dec_bstring)
+  if length(dec_bstring) == 1
+    dec_bstring = "";
+  else
+    dec_bstring = substr(dec_bstring, 2);
+  endif
 endfunction
 
 # Converts fractionary part of the number to a bitstring with 'len' characters
@@ -56,7 +108,7 @@ function string = frac2bin(fractional, len)
 
   while frac != 0 && frac_bits < len
     frac = frac * 2;
-    if frac >= 1
+    if frac > 1
       frac = frac - floor(frac);
       string = strcat(string, "1");
     else
@@ -198,10 +250,10 @@ function string = scan_keyboard(message)
 endfunction
 
 # Print word (4bytes) of IEEE Single Format that represents a given number
-function print_word(word_vector)
-  sign = word_vector(1);
-  exponent = word_vector(2:9);
-  significand = word_vector(10:32);
+function print_word(ieee_string)
+  sign = ieee_string(1);
+  exponent = ieee_string(2:9);
+  significand = ieee_string(10:32);
   printf("[  %c  |  ", sign);
   printf("%c  ", exponent); printf("|  ");
   printf("%c  ", significand); printf("]\n");
