@@ -50,24 +50,37 @@ function ieee_string = build_ieee_string(sign_bstring, dec_bstring, frac_bstring
   # Our number N is: |N| < 1 ------> exponent < 0
   if dec_bstring(1) == "0" && length(dec_bstring) == 1
     exponent = first_occurence_of_bit_1(frac_bstring);
+    if ((-1) * exponent) < -126
+      # minimum input tested acceptec = 0.000000000000000000000000000000000000012
+      printf("Received number doesn't fit the normalized interval (exponent < -126 = exp_min). Terminanting execution.");
+      exit;
+    endif
     frac_bstring = hide_ho_bit_fractional(frac_bstring, exponent);
-    significand_bstring = build_significand_bstring("", frac_bstring);
+    significant_bstring = build_significant_bstring("", frac_bstring);
     exponent_bstring = build_exponent_bstring(exponent * (-1));
-    ieee_string = strcat(sign_bstring, strcat(exponent_bstring, significand_bstring));
+    ieee_string = strcat(sign_bstring, strcat(exponent_bstring, significant_bstring));
   # Our number N is: |N| >= 1 -----> exponent >= 0
   else
     dec_bstring = hide_ho_bit_decimal(dec_bstring);
     exponent = length(dec_bstring);
-    significand_bstring = build_significand_bstring(dec_bstring, frac_bstring);
+    if exponent > 127
+      printf("Received number doesn't fit the normalized interval (exponent > 127 = exp_max). Terminanting execution.");
+      exit;
+    endif
+    significant_bstring = build_significant_bstring(dec_bstring, frac_bstring);
     exponent_bstring = build_exponent_bstring(exponent);
-    ieee_string = strcat(sign_bstring, strcat(exponent_bstring, significand_bstring));
+    ieee_string = strcat(sign_bstring, strcat(exponent_bstring, significant_bstring));
   endif
 endfunction
 
 # Locates the first occurence of the digit 1 in a fracional binary string and returns its index
 function occ = first_occurence_of_bit_1(frac_bstring)
-  occ = strchr(frac_bstring, '1');
-  occ = occ(1);
+  try
+    occ = strchr(frac_bstring, '1');
+    occ = occ(1);
+  catch
+    occ = 127;
+  end_try_catch
 endfunction
 
 # Build exponent binary string of size 8. Exponent string is a biased representation, as we
@@ -79,11 +92,18 @@ function exponent_bstring = build_exponent_bstring(exponent)
   endwhile
 endfunction
 
-# Builds significand binary string concatenating both decimal and fractional binary strings
+# Builds significant binary string concatenating both decimal and fractional binary strings
 # and then truncating it, keeping just the 23 left-most bits.
-function significand_bstring = build_significand_bstring(dec_bstring, frac_bstring)
-  significand_bstring = strcat(dec_bstring, frac_bstring);
-  significand_bstring = substr(significand_bstring, 1, 23);
+function significant_bstring = build_significant_bstring(dec_bstring, frac_bstring)
+  significant_bstring = strcat(dec_bstring, frac_bstring);
+  if length(significant_bstring) >= 23
+    significant_bstring = substr(significant_bstring, 1, 23);
+  else
+    significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
+    while length(significant_bstring) < 23
+      significant_bstring = strcat("0", significant_bstring);
+    endwhile
+  endif
 endfunction
 
 # Hide High-Order bit from string removing it. It is implicit that the most significant bit is 1
@@ -253,10 +273,10 @@ endfunction
 function print_word(ieee_string)
   sign = ieee_string(1);
   exponent = ieee_string(2:9);
-  significand = ieee_string(10:32);
+  significant = ieee_string(10:32);
   printf("[  %c  |  ", sign);
   printf("%c  ", exponent); printf("|  ");
-  printf("%c  ", significand); printf("]\n");
+  printf("%c  ", significant); printf("]\n");
 endfunction
 
 main();
