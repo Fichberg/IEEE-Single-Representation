@@ -100,7 +100,9 @@ function significant_bstring = build_significant_bstring(dec_bstring, frac_bstri
   if length(significant_bstring) >= 23
     significant_bstring = substr(significant_bstring, 1, 23);
   else
-    significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
+    if length(significant_bstring) > 0
+      significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
+    endif
     while length(significant_bstring) < 23
       significant_bstring = strcat("0", significant_bstring);
     endwhile
