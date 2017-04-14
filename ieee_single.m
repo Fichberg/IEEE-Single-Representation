@@ -74,9 +74,10 @@ function ieee_string = build_ieee_string(sign_bstring, dec_bstring, frac_bstring
 endfunction
 
 # Locates the first occurence of the digit 1 in a fracional binary string and returns its index
-function occ = first_occurence_of_bit_1(frac_bstring)
+function occ = first_occurence_of_bit_1(bstring)
   try
-    occ = strchr(frac_bstring, '1');
+
+    occ = strchr(bstring, '1');
     occ = occ(1);
   catch
     occ = 127;
