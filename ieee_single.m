@@ -12,24 +12,190 @@ function main()
   while true
     a = scan_keyboard("Input value for A:\n>> ");
     [a_value_bstring, a_sign_bstring] = input_to_number(a);
-    [a_ieee_bstring, a_normalized_input_bstring] = number_to_ieee_single(a_value_bstring, a_sign_bstring);
+    a_ieee_bstring = number_to_ieee_single(a_value_bstring, a_sign_bstring);
     printf("A = "); print_word(a_ieee_bstring);
 
     b = scan_keyboard("Input value for B:\n>> ");
     [b_value_bstring, b_sign_bstring] = input_to_number(b);
-    [b_ieee_bstring, b_normalized_input_bstring] = number_to_ieee_single(b_value_bstring, b_sign_bstring);
+    b_ieee_bstring = number_to_ieee_single(b_value_bstring, b_sign_bstring);
     printf("B = "); print_word(b_ieee_bstring);
 
     op = scan_keyboard("Select an operation (+ or -):\n>> ");
-    #ieee_string = operate(op, a_value, b_value);
-    #print_word(r_ieee_string);
+    r_ieee_string = operate(op, a_ieee_bstring, b_ieee_bstring);
+    printf("R = "); print_word(r_ieee_string);
   endwhile
 endfunction
 
+# Shifts significant string of ieee string by 'positions' positions and update exponent
+function ieee_bstring = shift_right_ieee_string(ieee_string, positions, exponent)
+  # Update exponent binary string
+  exponent_bstring = dec2bin(exponent);
+  while length(exponent_bstring) < 8
+    exponent_bstring = strcat("0", exponent_bstring);
+  endwhile
+
+  # Update significant binary string performing right shitf operation
+  significant_bstring = substr(ieee_string, 10);
+  count = 0;
+  while count < positions
+    significant_bstring = strcat("0", significant_bstring);
+    count++;
+  endwhile
+  significant_bstring = substr(significant_bstring, 1, 24);
+
+  ieee_bstring = strcat(ieee_string(1), strcat(exponent_bstring, significant_bstring));
+endfunction
+
+# Perform addition operation between A and B ninary IEEE strings
+function r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring)
+  r_significant_bstring = "";
+  a_significant_bstring = substr(a_ieee_bstring, 10);
+  b_significant_bstring = substr(b_ieee_bstring, 10);
+
+  carry = 0;
+  bit = length(a_significant_bstring);
+  while bit > 0
+    if a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '1'
+      if carry == 0
+        r_significant_bstring = strcat("0", r_significant_bstring);
+      else # carry == 1
+        r_significant_bstring = strcat("1", r_significant_bstring);
+      endif
+      carry = 1;
+    elseif (a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '0') || (a_significant_bstring(bit) == '0' && b_significant_bstring(bit) == '1')
+      if carry == 0
+        r_significant_bstring = strcat("1", r_significant_bstring);
+        carry = 0;
+      else # carry == 1
+        r_significant_bstring = strcat("0", r_significant_bstring);
+        carry = 1;
+      endif
+    else # a_ieee_bstring(bit) == '0' && b_ieee_bstring(bit) == '0'
+      if carry == 0
+        r_significant_bstring = strcat("0", r_significant_bstring);
+      else # carry == 1
+        r_significant_bstring = strcat("1", r_significant_bstring);
+      endif
+      carry = 0;
+    endif
+    bit--;
+  endwhile
+
+  if carry == 1
+    r_significant_bstring = strcat("1", r_significant_bstring);
+  endif
+
+  r_ieee_bstring = strcat(a_ieee_bstring(1), strcat(substr(a_ieee_bstring, 2, 8), r_significant_bstring));
+endfunction
+
+# Normalize significant string and exponent of resulting IEEE binary string
+function r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring)
+  significant_bstring = substr(r_ieee_bstring, 10);
+
+  positions = 0;
+  if length(significant_bstring) > 24 # Answer >= 2. Need to normalize. Carry was preppended
+    positions = length(significant_bstring) - 24;
+    new_exponent = bin2dec(substr(r_ieee_bstring, 2, 8)) + positions;
+    exponent_bstring = dec2bin(new_exponent);
+    while length(exponent_bstring) < 8
+      exponent_bstring = strcat("0", exponent_bstring);
+    endwhile
+    significant_bstring = substr(significant_bstring, 1);
+  elseif significant_bstring(1) == '0' # Answer < 1. Need to normalize.
+    occ = strchr(significant_bstring, "1");
+    position = occ(1) - 1;
+    new_exponent = bin2dec(substr(r_ieee_bstring, 2, 8)) - position;
+    while length(exponent_bstring) < 8
+      exponent_bstring = strcat("0", exponent_bstring);
+    endwhile
+    # TODO: MUST APPEND GUARDBITS AT THE END TOO!
+    significant_bstring = substr(significant_bstring, position);
+  else
+    # It might never enter this condition...
+    printf("Normalization error. Unexpected case. Terminating execution.");
+    exit;
+  endif
+
+  r_ieee_bstring = strcat(r_ieee_bstring(1), strcat(exponent_bstring, significant_bstring));
+endfunction
+
+# Perform addition operation of + A + B or - A - B
+function r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring)
+  # Recover exponents
+  exponent_a = bin2dec(substr(a_ieee_bstring, 2, 8));
+  exponent_b = bin2dec(substr(b_ieee_bstring, 2, 8));
+
+  # Preppend hidden bit
+  a_ieee_bstring = strcat(substr(a_ieee_bstring, 1, 9), strcat("1", substr(a_ieee_bstring, 10)));
+  b_ieee_bstring = strcat(substr(b_ieee_bstring, 1, 9), strcat("1", substr(b_ieee_bstring, 10)));
+
+  # Allign exponents and arrange significant (remain unchanged if they are equal)
+  if exponent_a != exponent_b
+    if exponent_a > exponent_b
+      b_ieee_bstring = shift_right_ieee_string(b_ieee_bstring, exponent_a - exponent_b, exponent_a);
+    elseif exponent_a < exponent_b
+      a_ieee_bstring = shift_right_ieee_string(a_ieee_bstring, exponent_b - exponent_a, exponent_b);
+    endif
+  endif
+
+  # Add numbers. Sign of the answer is the same of the numbers
+  r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring);
+
+  # Normalize if answer >= 2 or answer < 1
+  r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring);
+
+  # Remove hidden bit
+  r_ieee_bstring = strcat(r_ieee_bstring(1), strcat(substr(r_ieee_bstring, 2, 8), substr(r_ieee_bstring, 11)));
+endfunction
+
+# Perform subtraction operation of + A - B or + B - A
+function r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring)
+  # Recover exponents
+
+  # Preppend hidden bit
+
+  # Allign exponents (remain unchanged if they are equal)
+
+  # Define which number is greater (A > B or B > A)
+
+  # Subtract the smaller from the greater (+ A - B or + B - A).
+  # Keep sign of the greater number in answer
+
+  # Normalize if answer >= 2 or answer < 1
+
+  # Remove hidden bit
+
+  r_ieee_bstring = "";
+endfunction
+
+function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
+  if length(op) > 1 || (op(1) != '-' && op(1) != '+')
+    printf("Invalid operand input. Was expecting '+' or '-'. Terminating execution.");
+    exit;
+  else
+    # Invert number sign
+    if op(1) == '-'
+      if b_ieee_bstring(1) == '0'
+        b_ieee_bstring(1) = '1';
+      else
+        b_ieee_bstring(1) = '0';
+      endif
+    endif
+
+    # Perform operation A op B
+    if b_ieee_bstring(1) == a_ieee_bstring(1)
+      r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring);
+    else
+      #r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring);
+      exit;
+    endif
+  endif
+endfunction
+
 # Converts number to IEEE Single Format
-function [ieee_string, normalized_input_bstring] = number_to_ieee_single(number_bstring, sign_bstring)
+function ieee_string = number_to_ieee_single(number_bstring, sign_bstring)
   occ = strchr(number_bstring, '.');
-  # Integer number
+  # Integer number. Max allowed: 340282366920938463463374607431768211455
   if length(occ) == 0
     dec_bstring = number_bstring;
     frac_bstring = "";
@@ -38,9 +204,6 @@ function [ieee_string, normalized_input_bstring] = number_to_ieee_single(number_
     dec_bstring = substr(number_bstring, 1, occ - 1);
     frac_bstring = substr(number_bstring, occ + 1);
   endif
-
-  normalized_input_bstring = strcat(dec_bstring, frac_bstring);
-  normalized_input_bstring = substr(normalized_input_bstring, 2);
 
   ieee_string = build_iee_single_representation(dec_bstring, frac_bstring, sign_bstring);
 endfunction
@@ -103,7 +266,7 @@ function significant_bstring = build_significant_bstring(dec_bstring, frac_bstri
       significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
     endif
     while length(significant_bstring) < 23
-      significant_bstring = strcat("0", significant_bstring);
+      significant_bstring = strcat(significant_bstring, "0");
     endwhile
   endif
 endfunction
@@ -149,7 +312,7 @@ function value_string = is_numeric_input(string, is_binary)
     endif
     value_string = string;
   else
-    printf("Invalid format. Was expecting a number.");
+    printf("Invalid format. Was expecting a number. Terminating execution.");
     exit;
   endif
 endfunction
@@ -191,7 +354,7 @@ function [value_bstring, sign] = input_to_number(string)
       value_bstring = string;
     # Error
     else
-      printf("Invalid format. Bad use of floating point string detected. Accepted format for float is '[0-1]+\.[0-1]+'.");
+      printf("Invalid format. Bad use of floating point string detected. Accepted format for float is '[0-1]+\.[0-1]+'. Terminating execution.");
       exit;
     endif
 
@@ -213,7 +376,7 @@ function [value_bstring, sign] = input_to_number(string)
       value_bstring = strcat(dec_bstring, strcat(".", frac_bstring));
     # Error
     else
-      printf("Invalid format. Bad use of floating point string detected. Accepted format for float is '[0-9]+\.[0-9]+'.");
+      printf("Invalid format. Bad use of floating point string detected. Accepted format for float is '[0-9]+\.[0-9]+'. Terminating execution.");
       exit;
     endif
   endif
@@ -306,7 +469,7 @@ function pass_if_binary(string)
   i = 1;
   while i <= length(string)
     if string(i) != '0' && string(i) != '1'
-      printf("Invalid format. Was expecting a binary string.");
+      printf("Invalid format. Was expecting a binary string. Terminating execution.");
       exit;
     endif
     i++;
