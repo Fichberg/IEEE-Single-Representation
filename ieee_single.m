@@ -12,12 +12,12 @@ function main()
   while true
     a = scan_keyboard("Input value for A:\n>> ");
     [a_value_bstring, a_sign_bstring] = input_to_number(a);
-    a_ieee_bstring = number_to_ieee_single(a_value_bstring, a_sign_bstring);
+    [a_ieee_bstring, a_normalized_input_bstring] = number_to_ieee_single(a_value_bstring, a_sign_bstring);
     printf("A = "); print_word(a_ieee_bstring);
 
     b = scan_keyboard("Input value for B:\n>> ");
     [b_value_bstring, b_sign_bstring] = input_to_number(b);
-    b_ieee_bstring = number_to_ieee_single(b_value_bstring, b_sign_bstring);
+    [b_ieee_bstring, b_normalized_input_bstring] = number_to_ieee_single(b_value_bstring, b_sign_bstring);
     printf("B = "); print_word(b_ieee_bstring);
 
     op = scan_keyboard("Select an operation (+ or -):\n>> ");
@@ -27,7 +27,7 @@ function main()
 endfunction
 
 # Converts number to IEEE Single Format
-function ieee_string = number_to_ieee_single(number_bstring, sign_bstring)
+function [ieee_string, normalized_input_bstring] = number_to_ieee_single(number_bstring, sign_bstring)
   occ = strchr(number_bstring, '.');
   # Integer number
   if length(occ) == 0
@@ -38,6 +38,9 @@ function ieee_string = number_to_ieee_single(number_bstring, sign_bstring)
     dec_bstring = substr(number_bstring, 1, occ - 1);
     frac_bstring = substr(number_bstring, occ + 1);
   endif
+
+  normalized_input_bstring = strcat(dec_bstring, frac_bstring);
+  normalized_input_bstring = substr(normalized_input_bstring, 2);
 
   ieee_string = build_iee_single_representation(dec_bstring, frac_bstring, sign_bstring);
 endfunction
@@ -206,6 +209,7 @@ function [value_bstring, sign] = input_to_number(string)
 
       dec_bstring = decimal_integer_string_to_bstring(dec_string);
       frac_bstring = fractional_integer_string_to_bstring(frac_string);
+
       value_bstring = strcat(dec_bstring, strcat(".", frac_bstring));
     # Error
     else
