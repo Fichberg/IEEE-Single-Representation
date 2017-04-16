@@ -41,36 +41,41 @@ function ieee_bstring = shift_right_ieee_string(ieee_string, positions, exponent
     significant_bstring = strcat("0", significant_bstring);
     count++;
   endwhile
-  significant_bstring = substr(significant_bstring, 1, 24);
+  # 26 = significant size (23) + hidden bit (1) + guard bits (2)
+  significant_bstring = substr(significant_bstring, 1, 26);
 
   ieee_bstring = strcat(ieee_string(1), strcat(exponent_bstring, significant_bstring));
 endfunction
 
 # Perform subtraction operation between greater and smaller binary IEEE strings
-function r_ieee_bstring = perform_addition(g_ieee_bstring, s_ieee_bstring)
+function r_ieee_bstring = perform_subtraction(g_ieee_bstring, s_ieee_bstring)
   r_significant_bstring = "";
   g_significant_bstring = substr(g_ieee_bstring, 10);
   s_significant_bstring = substr(s_ieee_bstring, 10);
 
-  bit = length(a_significant_bstring);
+  bit = length(g_significant_bstring);
   while bit > 0
-    if a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '1'
-
-      #r_significant_bstring = strcat("0", r_significant_bstring);
-
-    elseif (a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '0') || (a_significant_bstring(bit) == '0' && b_significant_bstring(bit) == '1')
-
-    else # a_ieee_bstring(bit) == '0' && b_ieee_bstring(bit) == '0'
-
+    if g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '1'
+      r_significant_bstring = strcat("0", r_significant_bstring);
+    elseif g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '0'
+      r_significant_bstring = strcat("1", r_significant_bstring);
+    elseif g_significant_bstring(bit) == '0' && s_significant_bstring(bit) == '1'
+      occ = strchr(g_significant_bstring, "1");
+      occ = occ(length(occ));
+      g_significant_bstring(occ++) = "0";
+      while occ < bit
+        g_significant_bstring(occ) = "1";
+        occ++;
+      endwhile
+      g_significant_bstring(occ) = "0";
+      r_significant_bstring = strcat("1", r_significant_bstring);
+    else # g_ieee_bstring(bit) == '0' && s_ieee_bstring(bit) == '0'
+      r_significant_bstring = strcat("0", r_significant_bstring);
     endif
     bit--;
   endwhile
 
-  #if carry == 1
-  #  r_significant_bstring = strcat("1", r_significant_bstring);
-  #endif
-
-  r_ieee_bstring = strcat(a_ieee_bstring(1), strcat(substr(a_ieee_bstring, 2, 8), r_significant_bstring));
+  r_ieee_bstring = strcat(g_ieee_bstring(1), strcat(substr(g_ieee_bstring, 2, 8), r_significant_bstring));
 endfunction
 
 # Perform addition operation between A and B binary IEEE strings
@@ -231,8 +236,7 @@ function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
     if b_ieee_bstring(1) == a_ieee_bstring(1)
       r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring);
     else
-      #r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring);
-      exit;
+      r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring);
     endif
   endif
 endfunction
@@ -324,6 +328,9 @@ endfunction
 
 # Hide High-Order bit from string removing it. It is implicit that the most significant bit is 1
 function frac_bstring = hide_ho_bit_fractional(frac_bstring, exponent)
+  if frac_bstring(length(frac_bstring)) == "1"
+    frac_bstring = strcat(frac_bstring, "0");
+  endif
   frac_bstring = substr(frac_bstring, exponent + 1);
 endfunction
 
