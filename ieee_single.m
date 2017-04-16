@@ -46,7 +46,34 @@ function ieee_bstring = shift_right_ieee_string(ieee_string, positions, exponent
   ieee_bstring = strcat(ieee_string(1), strcat(exponent_bstring, significant_bstring));
 endfunction
 
-# Perform addition operation between A and B ninary IEEE strings
+# Perform subtraction operation between greater and smaller binary IEEE strings
+function r_ieee_bstring = perform_addition(g_ieee_bstring, s_ieee_bstring)
+  r_significant_bstring = "";
+  g_significant_bstring = substr(g_ieee_bstring, 10);
+  s_significant_bstring = substr(s_ieee_bstring, 10);
+
+  bit = length(a_significant_bstring);
+  while bit > 0
+    if a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '1'
+
+      #r_significant_bstring = strcat("0", r_significant_bstring);
+
+    elseif (a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '0') || (a_significant_bstring(bit) == '0' && b_significant_bstring(bit) == '1')
+
+    else # a_ieee_bstring(bit) == '0' && b_ieee_bstring(bit) == '0'
+
+    endif
+    bit--;
+  endwhile
+
+  #if carry == 1
+  #  r_significant_bstring = strcat("1", r_significant_bstring);
+  #endif
+
+  r_ieee_bstring = strcat(a_ieee_bstring(1), strcat(substr(a_ieee_bstring, 2, 8), r_significant_bstring));
+endfunction
+
+# Perform addition operation between A and B binary IEEE strings
 function r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring)
   r_significant_bstring = "";
   a_significant_bstring = substr(a_ieee_bstring, 10);
@@ -151,21 +178,39 @@ endfunction
 # Perform subtraction operation of + A - B or + B - A
 function r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring)
   # Recover exponents
+  exponent_a = bin2dec(substr(a_ieee_bstring, 2, 8));
+  exponent_b = bin2dec(substr(b_ieee_bstring, 2, 8));
 
   # Preppend hidden bit
+  a_ieee_bstring = strcat(substr(a_ieee_bstring, 1, 9), strcat("1", substr(a_ieee_bstring, 10)));
+  b_ieee_bstring = strcat(substr(b_ieee_bstring, 1, 9), strcat("1", substr(b_ieee_bstring, 10)));
 
   # Allign exponents (remain unchanged if they are equal)
+  if exponent_a != exponent_b
+    if exponent_a > exponent_b
+      b_ieee_bstring = shift_right_ieee_string(b_ieee_bstring, exponent_a - exponent_b, exponent_a);
+    elseif exponent_a < exponent_b
+      a_ieee_bstring = shift_right_ieee_string(a_ieee_bstring, exponent_b - exponent_a, exponent_b);
+    endif
+  endif
 
   # Define which number is greater (A > B or B > A)
+  significant_a = bin2dec(substr(a_ieee_bstring, 10));
+  significant_b = bin2dec(substr(b_ieee_bstring, 10));
 
   # Subtract the smaller from the greater (+ A - B or + B - A).
   # Keep sign of the greater number in answer
+  if significant_a >= significant_b
+    r_ieee_bstring = perform_subtraction(a_ieee_bstring, b_ieee_bstring);
+  else
+    r_ieee_bstring = perform_subtraction(b_ieee_bstring, a_ieee_bstring);
+  endif
 
   # Normalize if answer >= 2 or answer < 1
+  r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring);
 
   # Remove hidden bit
-
-  r_ieee_bstring = "";
+  r_ieee_bstring = strcat(r_ieee_bstring(1), strcat(substr(r_ieee_bstring, 2, 8), substr(r_ieee_bstring, 11)));
 endfunction
 
 function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
@@ -259,16 +304,22 @@ endfunction
 # and then truncating it, keeping just the 23 left-most bits.
 function significant_bstring = build_significant_bstring(dec_bstring, frac_bstring)
   significant_bstring = strcat(dec_bstring, frac_bstring);
+  # Retain guard bits
   if length(significant_bstring) >= 23
-    significant_bstring = substr(significant_bstring, 1, 23);
+    if length(significant_bstring) >= 25
+      significant_bstring = substr(significant_bstring, 1, 25);
+    else
+      significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
+    endif
   else
     if length(significant_bstring) > 0
       significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
     endif
-    while length(significant_bstring) < 23
-      significant_bstring = strcat(significant_bstring, "0");
-    endwhile
   endif
+  # Significant binary string with 2 Guard bits
+  while length(significant_bstring) < 25
+    significant_bstring = strcat(significant_bstring, "0");
+  endwhile
 endfunction
 
 # Hide High-Order bit from string removing it. It is implicit that the most significant bit is 1
@@ -459,9 +510,11 @@ function print_word(ieee_string)
   sign = ieee_string(1);
   exponent = ieee_string(2:9);
   significant = ieee_string(10:32);
-  printf("[  %c  |  ", sign);
-  printf("%c  ", exponent); printf("|  ");
-  printf("%c  ", significant); printf("]\n");
+  guard = ieee_string(33:34);
+  printf("[ %c | ", sign);
+  printf("%c ", exponent); printf("| ");
+  printf("%c ", significant); printf("] || Guard Bits: [");
+  printf(" %c ", guard);printf("]\n");
 endfunction
 
 # Check whether the string contains only the characters '0' or '1'. If not, terminates execution.
