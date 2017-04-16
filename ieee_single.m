@@ -41,8 +41,8 @@ function ieee_bstring = shift_right_ieee_string(ieee_string, positions, exponent
     significant_bstring = strcat("0", significant_bstring);
     count++;
   endwhile
-  # 26 = significant size (23) + hidden bit (1) + guard bits (2)
-  significant_bstring = substr(significant_bstring, 1, 26);
+  # 27 = significant size (23) + hidden bit (1) + guard bits (2) + sticky bit (1)
+  significant_bstring = substr(significant_bstring, 1, 27);
 
   ieee_bstring = strcat(ieee_string(1), strcat(exponent_bstring, significant_bstring));
 endfunction
@@ -301,8 +301,9 @@ function significant_bstring = build_significant_bstring(dec_bstring, frac_bstri
   significant_bstring = strcat(dec_bstring, frac_bstring);
   # Retain guard bits
   if length(significant_bstring) >= 23
-    if length(significant_bstring) >= 25
-      significant_bstring = substr(significant_bstring, 1, 25);
+    if length(significant_bstring) > 25
+      sticky_bit = obtain_sticky_bit(substr(significant_bstring, 26));
+      significant_bstring = strcat(substr(significant_bstring, 1, 25), sticky_bit);
     else
       significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
     endif
@@ -311,10 +312,21 @@ function significant_bstring = build_significant_bstring(dec_bstring, frac_bstri
       significant_bstring = substr(significant_bstring, 1, length(significant_bstring));
     endif
   endif
-  # Significant binary string with 2 Guard bits
-  while length(significant_bstring) < 25
+
+  # Significant binary string with 2 Guard bits and 1 sticky bit
+  while length(significant_bstring) < 26
     significant_bstring = strcat(significant_bstring, "0");
   endwhile
+endfunction
+
+# Returns the state of the sticky bit.
+function sticky_bit = obtain_sticky_bit(string)
+  occ = strchr(string, "1");
+  if length(occ) > 0
+    sticky_bit = "1";
+  else
+    sticky_bit = "0";
+  endif
 endfunction
 
 # Hide High-Order bit from string removing it. It is implicit that the most significant bit is 1
@@ -509,10 +521,12 @@ function print_word(ieee_string)
   exponent = ieee_string(2:9);
   significant = ieee_string(10:32);
   guard = ieee_string(33:34);
+  sticky = ieee_string(35);
   printf("[ %c | ", sign);
   printf("%c ", exponent); printf("| ");
   printf("%c ", significant); printf("] || Guard Bits: [");
-  printf(" %c ", guard);printf("]\n");
+  printf(" %c ", guard);printf("] Sticky Bit: [");
+  printf(" %c ", sticky);printf("]\n");
 endfunction
 
 # Check whether the string contains only the characters '0' or '1'. If not, terminates execution.
