@@ -79,22 +79,22 @@ function r_ieee_bstring = perform_subtraction(g_ieee_bstring, s_ieee_bstring)
 endfunction
 
 # Perform addition operation between A and B binary IEEE strings
-function r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring)
+function r_ieee_bstring = perform_addition(g_ieee_bstring, s_ieee_bstring)
   r_significant_bstring = "";
-  a_significant_bstring = substr(a_ieee_bstring, 10);
-  b_significant_bstring = substr(b_ieee_bstring, 10);
+  g_significant_bstring = substr(g_ieee_bstring, 10);
+  s_significant_bstring = substr(s_ieee_bstring, 10);
 
   carry = 0;
-  bit = length(a_significant_bstring);
+  bit = length(g_significant_bstring);
   while bit > 0
-    if a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '1'
+    if g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '1'
       if carry == 0
         r_significant_bstring = strcat("0", r_significant_bstring);
       else # carry == 1
         r_significant_bstring = strcat("1", r_significant_bstring);
       endif
       carry = 1;
-    elseif (a_significant_bstring(bit) == '1' && b_significant_bstring(bit) == '0') || (a_significant_bstring(bit) == '0' && b_significant_bstring(bit) == '1')
+    elseif (g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '0') || (g_significant_bstring(bit) == '0' && s_significant_bstring(bit) == '1')
       if carry == 0
         r_significant_bstring = strcat("1", r_significant_bstring);
         carry = 0;
@@ -117,38 +117,26 @@ function r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring)
     r_significant_bstring = strcat("1", r_significant_bstring);
   endif
 
-  r_ieee_bstring = strcat(a_ieee_bstring(1), strcat(substr(a_ieee_bstring, 2, 8), r_significant_bstring));
+  r_ieee_bstring = strcat(g_ieee_bstring(1), strcat(substr(g_ieee_bstring, 2, 8), r_significant_bstring));
 endfunction
 
 # Normalize significant string and exponent of resulting IEEE binary string
 function r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring)
+  # Significant binary string without hidden bit
   significant_bstring = substr(r_ieee_bstring, 10);
 
-  positions = 0;
-  if length(significant_bstring) > 24 # Answer >= 2. Need to normalize. Carry was preppended
-    positions = length(significant_bstring) - 24;
-    new_exponent = bin2dec(substr(r_ieee_bstring, 2, 8)) + positions;
-    exponent_bstring = dec2bin(new_exponent);
-    while length(exponent_bstring) < 8
-      exponent_bstring = strcat("0", exponent_bstring);
+  occ = strchr(significant_bstring, "1");
+  if length(occ) > 0
+    occ = occ(1);
+    significant_bstring = substr(significant_bstring, occ + 1);
+    count = 0;
+    while count < occ
+      significant_bstring = strcat(significant_bstring, "0");
+      count++;
     endwhile
-    significant_bstring = substr(significant_bstring, 1);
-  elseif significant_bstring(1) == '0' # Answer < 1. Need to normalize.
-    occ = strchr(significant_bstring, "1");
-    position = occ(1) - 1;
-    new_exponent = bin2dec(substr(r_ieee_bstring, 2, 8)) - position;
-    while length(exponent_bstring) < 8
-      exponent_bstring = strcat("0", exponent_bstring);
-    endwhile
-    # TODO: MUST APPEND GUARDBITS AT THE END TOO!
-    significant_bstring = substr(significant_bstring, position);
-  else
-    # It might never enter this condition...
-    printf("Normalization error. Unexpected case. Terminating execution.");
-    exit;
   endif
 
-  r_ieee_bstring = strcat(r_ieee_bstring(1), strcat(exponent_bstring, significant_bstring));
+  r_ieee_bstring = strcat(substr(r_ieee_bstring, 1, 9), significant_bstring);
 endfunction
 
 # Perform addition operation of + A + B or - A - B
@@ -170,14 +158,20 @@ function r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring)
     endif
   endif
 
-  # Add numbers. Sign of the answer is the same of the numbers
-  r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring);
+  # Define which number is greater (A > B or B > A)
+  significant_a = bin2dec(substr(a_ieee_bstring, 10));
+  significant_b = bin2dec(substr(b_ieee_bstring, 10));
 
-  # Normalize if answer >= 2 or answer < 1
+  # Add numbers. Sign of the answer is the same of the numbers. We use the if condition to
+  # know which exponent string to pick from.
+  if significant_a >= significant_b
+    r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring);
+  else
+    r_ieee_bstring = perform_addition(b_ieee_bstring, a_ieee_bstring);
+  endif
+
+  # Normalize if answer >= 2 or answer < 1. Removes hidden bit.
   r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring);
-
-  # Remove hidden bit
-  r_ieee_bstring = strcat(r_ieee_bstring(1), strcat(substr(r_ieee_bstring, 2, 8), substr(r_ieee_bstring, 11)));
 endfunction
 
 # Perform subtraction operation of + A - B or + B - A
@@ -211,11 +205,8 @@ function r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring)
     r_ieee_bstring = perform_subtraction(b_ieee_bstring, a_ieee_bstring);
   endif
 
-  # Normalize if answer >= 2 or answer < 1
+  # Normalize if answer >= 2 or answer < 1. Removes hidden bit.
   r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring);
-
-  # Remove hidden bit
-  r_ieee_bstring = strcat(r_ieee_bstring(1), strcat(substr(r_ieee_bstring, 2, 8), substr(r_ieee_bstring, 11)));
 endfunction
 
 function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
