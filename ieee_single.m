@@ -26,187 +26,33 @@ function main()
   endwhile
 endfunction
 
-# Shifts significant string of ieee string by 'positions' positions and update exponent
-function ieee_bstring = shift_right_ieee_string(ieee_string, positions, exponent)
-  # Update exponent binary string
-  exponent_bstring = dec2bin(exponent);
-  while length(exponent_bstring) < 8
-    exponent_bstring = strcat("0", exponent_bstring);
-  endwhile
+# Normalize significant string and exponent of resulting IEEE binary string
+function r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring)
 
-  # Update significant binary string performing right shitf operation
-  significant_bstring = substr(ieee_string, 10);
-  count = 0;
-  while count < positions
-    significant_bstring = strcat("0", significant_bstring);
-    count++;
-  endwhile
-  # 27 = significant size (23) + hidden bit (1) + guard bits (2) + sticky bit (1)
-  significant_bstring = substr(significant_bstring, 1, 27);
-
-  ieee_bstring = strcat(ieee_string(1), strcat(exponent_bstring, significant_bstring));
 endfunction
 
 # Perform subtraction operation between greater and smaller binary IEEE strings
 function r_ieee_bstring = perform_subtraction(g_ieee_bstring, s_ieee_bstring)
-  r_significant_bstring = "";
-  g_significant_bstring = substr(g_ieee_bstring, 10);
-  s_significant_bstring = substr(s_ieee_bstring, 10);
 
-  bit = length(g_significant_bstring);
-  while bit > 0
-    if g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '1'
-      r_significant_bstring = strcat("0", r_significant_bstring);
-    elseif g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '0'
-      r_significant_bstring = strcat("1", r_significant_bstring);
-    elseif g_significant_bstring(bit) == '0' && s_significant_bstring(bit) == '1'
-      occ = strchr(g_significant_bstring, "1");
-      occ = occ(length(occ));
-      g_significant_bstring(occ++) = "0";
-      while occ < bit
-        g_significant_bstring(occ) = "1";
-        occ++;
-      endwhile
-      g_significant_bstring(occ) = "0";
-      r_significant_bstring = strcat("1", r_significant_bstring);
-    else # g_ieee_bstring(bit) == '0' && s_ieee_bstring(bit) == '0'
-      r_significant_bstring = strcat("0", r_significant_bstring);
-    endif
-    bit--;
-  endwhile
-
-  r_ieee_bstring = strcat(g_ieee_bstring(1), strcat(substr(g_ieee_bstring, 2, 8), r_significant_bstring));
 endfunction
 
 # Perform addition operation between A and B binary IEEE strings
 function r_ieee_bstring = perform_addition(g_ieee_bstring, s_ieee_bstring)
-  r_significant_bstring = "";
-  g_significant_bstring = substr(g_ieee_bstring, 10);
-  s_significant_bstring = substr(s_ieee_bstring, 10);
 
-  carry = 0;
-  bit = length(g_significant_bstring);
-  while bit > 0
-    if g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '1'
-      if carry == 0
-        r_significant_bstring = strcat("0", r_significant_bstring);
-      else # carry == 1
-        r_significant_bstring = strcat("1", r_significant_bstring);
-      endif
-      carry = 1;
-    elseif (g_significant_bstring(bit) == '1' && s_significant_bstring(bit) == '0') || (g_significant_bstring(bit) == '0' && s_significant_bstring(bit) == '1')
-      if carry == 0
-        r_significant_bstring = strcat("1", r_significant_bstring);
-        carry = 0;
-      else # carry == 1
-        r_significant_bstring = strcat("0", r_significant_bstring);
-        carry = 1;
-      endif
-    else # a_ieee_bstring(bit) == '0' && b_ieee_bstring(bit) == '0'
-      if carry == 0
-        r_significant_bstring = strcat("0", r_significant_bstring);
-      else # carry == 1
-        r_significant_bstring = strcat("1", r_significant_bstring);
-      endif
-      carry = 0;
-    endif
-    bit--;
-  endwhile
-
-  if carry == 1
-    r_significant_bstring = strcat("1", r_significant_bstring);
-  endif
-
-  r_ieee_bstring = strcat(g_ieee_bstring(1), strcat(substr(g_ieee_bstring, 2, 8), r_significant_bstring));
-endfunction
-
-# Normalize significant string and exponent of resulting IEEE binary string
-function r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring)
-  # Significant binary string without hidden bit
-  significant_bstring = substr(r_ieee_bstring, 10);
-
-  occ = strchr(significant_bstring, "1");
-  if length(occ) > 0
-    occ = occ(1);
-    significant_bstring = substr(significant_bstring, occ + 1);
-    count = 0;
-    while count < occ
-      significant_bstring = strcat(significant_bstring, "0");
-      count++;
-    endwhile
-  endif
-
-  r_ieee_bstring = strcat(substr(r_ieee_bstring, 1, 9), significant_bstring);
 endfunction
 
 # Perform addition operation of + A + B or - A - B
 function r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring)
-  # Recover exponents
-  exponent_a = bin2dec(substr(a_ieee_bstring, 2, 8));
-  exponent_b = bin2dec(substr(b_ieee_bstring, 2, 8));
 
-  # Preppend hidden bit
-  a_ieee_bstring = strcat(substr(a_ieee_bstring, 1, 9), strcat("1", substr(a_ieee_bstring, 10)));
-  b_ieee_bstring = strcat(substr(b_ieee_bstring, 1, 9), strcat("1", substr(b_ieee_bstring, 10)));
-
-  # Allign exponents and arrange significant (remain unchanged if they are equal)
-  if exponent_a != exponent_b
-    if exponent_a > exponent_b
-      b_ieee_bstring = shift_right_ieee_string(b_ieee_bstring, exponent_a - exponent_b, exponent_a);
-    elseif exponent_a < exponent_b
-      a_ieee_bstring = shift_right_ieee_string(a_ieee_bstring, exponent_b - exponent_a, exponent_b);
-    endif
-  endif
-
-  # Define which number is greater (A > B or B > A)
-  significant_a = bin2dec(substr(a_ieee_bstring, 10));
-  significant_b = bin2dec(substr(b_ieee_bstring, 10));
-
-  # Add numbers. Sign of the answer is the same of the numbers. We use the if condition to
-  # know which exponent string to pick from.
-  if significant_a >= significant_b
-    r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring);
-  else
-    r_ieee_bstring = perform_addition(b_ieee_bstring, a_ieee_bstring);
-  endif
-
-  # Normalize if answer >= 2 or answer < 1. Removes hidden bit.
-  r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring);
 endfunction
 
 # Perform subtraction operation of + A - B or + B - A
 function r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring)
-  # Recover exponents
-  exponent_a = bin2dec(substr(a_ieee_bstring, 2, 8));
-  exponent_b = bin2dec(substr(b_ieee_bstring, 2, 8));
 
-  # Preppend hidden bit
-  a_ieee_bstring = strcat(substr(a_ieee_bstring, 1, 9), strcat("1", substr(a_ieee_bstring, 10)));
-  b_ieee_bstring = strcat(substr(b_ieee_bstring, 1, 9), strcat("1", substr(b_ieee_bstring, 10)));
+endfunction
 
-  # Allign exponents (remain unchanged if they are equal)
-  if exponent_a != exponent_b
-    if exponent_a > exponent_b
-      b_ieee_bstring = shift_right_ieee_string(b_ieee_bstring, exponent_a - exponent_b, exponent_a);
-    elseif exponent_a < exponent_b
-      a_ieee_bstring = shift_right_ieee_string(a_ieee_bstring, exponent_b - exponent_a, exponent_b);
-    endif
-  endif
-
-  # Define which number is greater (A > B or B > A)
-  significant_a = bin2dec(substr(a_ieee_bstring, 10));
-  significant_b = bin2dec(substr(b_ieee_bstring, 10));
-
-  # Subtract the smaller from the greater (+ A - B or + B - A).
-  # Keep sign of the greater number in answer
-  if significant_a >= significant_b
-    r_ieee_bstring = perform_subtraction(a_ieee_bstring, b_ieee_bstring);
-  else
-    r_ieee_bstring = perform_subtraction(b_ieee_bstring, a_ieee_bstring);
-  endif
-
-  # Normalize if answer >= 2 or answer < 1. Removes hidden bit.
-  r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring);
+# Shift right string by pos positions
+function ieee_bstring = shift_right_ieee_string(ieee_bstring, pos)
 endfunction
 
 function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
@@ -224,12 +70,19 @@ function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
     endif
 
     # Perform operation A op B
-    if b_ieee_bstring(1) == a_ieee_bstring(1)
-      r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring);
-    else
-      r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring);
-    endif
+    #if b_ieee_bstring(1) == a_ieee_bstring(1)
+    #  r_ieee_bstring = ieee_addition(a_ieee_bstring, b_ieee_bstring);
+    #else
+    #  r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring);
+    #endif
+
+    #r_ieee_bstring = perform_round(r_ieee_bstring);
   endif
+endfunction
+
+# Perform one round operation (if needed)
+function r_ieee_bstring = perform_round(r_ieee_bstring)
+  r_ieee_bstring = "";
 endfunction
 
 # Converts number to IEEE Single Format
