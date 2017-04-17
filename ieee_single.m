@@ -26,19 +26,141 @@ function main()
   endwhile
 endfunction
 
-# Normalize significant string and exponent of resulting IEEE binary string
-function r_ieee_bstring = normalize_ieee_bstring(r_ieee_bstring)
-
-endfunction
-
 # Perform subtraction operation between greater and smaller binary IEEE strings
 function r_ieee_bstring = perform_subtraction(g_ieee_bstring, s_ieee_bstring)
+  # IEEE pieces of A
+  g_sign_bstring = r_sign_bstring = g_ieee_bstring(1);
+  g_exponent_bstring = r_exponent_bstring = g_ieee_bstring(2:9);
+  g_significant_bstring = g_ieee_bstring(10:36);
 
+  # IEEE pieces of B
+  s_sign_bstring = s_ieee_bstring(1);
+  s_exponent_bstring = s_ieee_bstring(2:9);
+  s_significant_bstring = s_ieee_bstring(10:36);
+
+  # Do bitwise subtraction from last bit to first
+  r_significant_bstring = "";
+  bit = length(g_significant_bstring);
+  while bit > 0
+    if g_significant_bstring(bit) == "1" && s_significant_bstring(bit) == "1"
+      r_significant_bstring = strcat("0", r_significant_bstring);
+    elseif g_significant_bstring(bit) == "1" && s_significant_bstring(bit) == "0"
+      r_significant_bstring = strcat("1", r_significant_bstring);
+    elseif g_significant_bstring(bit) == "0" && s_significant_bstring(bit) == "1"
+      # Locate closer "1" to the left of "bit"
+      occ = strchr(g_significant_bstring, "1");
+      closer_index = length(occ);
+      while occ(closer_index) >= bit
+        closer_index--;
+      endwhile
+      closer = occ(closer_index);
+
+      # Transfer digit updating zeros in between closer 1 and bit
+      g_significant_bstring(closer) = "0";
+      closer++;
+      while closer < bit
+        g_significant_bstring(closer) = "1";
+        closer++;
+      endwhile
+      g_significant_bstring(closer) = "0";
+
+      r_significant_bstring = strcat("1", r_significant_bstring);
+    else # g_significant_bstring(bit) == "0" && s_significant_bstring(bit) == "0"
+      r_significant_bstring = strcat("0", r_significant_bstring);
+    endif
+    bit--;
+  endwhile
+
+  # Normalize
+  if r_significant_bstring(1) == "0"
+    occ = strchr(r_significant_bstring, "1");
+    if occ > 0
+      occ = occ(1);
+      count = 0;
+      while count < occ
+        r_significant_bstring = strcat(r_significant_bstring, "0");
+        count++;
+      endwhile
+      r_significant_bstring = substr(r_significant_bstring, occ + 1);
+      r_guard_bstring = r_significant_bstring(24:25);
+      r_significant_bstring = r_significant_bstring(1:23);
+      r_exponent = bin2dec(r_exponent_bstring) - occ + 1;
+      r_exponent_bstring = dec2bin(r_exponent);
+      while length(r_exponent_bstring) < 8
+         r_exponent_bstring = strcat("0", r_exponent_bstring);
+       endwhile
+    else
+      #TODO: string zero. IMPLEMENT ME
+      printf("IMPLEMENT ME STRING ZERO IN perform_subtraction\n");
+      exit;
+    endif
+  else
+    r_guard_bstring = r_significant_bstring(25:26);
+    r_significant_bstring = r_significant_bstring(2:24);
+  endif
+
+  r_ieee_bstring = strcat(r_sign_bstring, strcat(r_exponent_bstring, strcat(r_significant_bstring, r_guard_bstring)));
 endfunction
 
 # Perform subtraction operation of + A - B or + B - A
 function r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring)
+  # IEEE pieces of A
+  a_sign_bstring = a_ieee_bstring(1);
+  a_exponent_bstring = a_ieee_bstring(2:9);
+  a_significant_bstring = a_ieee_bstring(10:32);
+  a_guard_bstring = a_ieee_bstring(33:34);
 
+  # IEEE pieces of B
+  b_sign_bstring = b_ieee_bstring(1);
+  b_exponent_bstring = b_ieee_bstring(2:9);
+  b_significant_bstring = b_ieee_bstring(10:32);
+  b_guard_bstring = b_ieee_bstring(33:34);
+
+  # Add hidden bits to significants of A and B
+  a_significant_bstring = strcat("1", a_significant_bstring);
+  b_significant_bstring = strcat("1", b_significant_bstring);
+  a_ieee_bstring = strcat(a_sign_bstring, strcat(a_exponent_bstring, strcat(a_significant_bstring, a_guard_bstring)));
+  b_ieee_bstring = strcat(b_sign_bstring, strcat(b_exponent_bstring, strcat(b_significant_bstring, b_guard_bstring)));
+
+  # Convert exponent binary strings of A and B to numbers
+  a_exponent = bin2dec(a_exponent_bstring);
+  b_exponent = bin2dec(b_exponent_bstring);
+
+  # Align significants if exponents are different
+  if a_exponent != b_exponent
+    if a_exponent > b_exponent
+      positions = a_exponent - b_exponent;
+      [b_exponent_bstring, b_significant_bstring, b_guard_bstring, b_sticky_bstring] = shift_right(positions, b_exponent_bstring, b_significant_bstring, b_guard_bstring);
+      b_ieee_bstring = strcat(b_sign_bstring, strcat(b_exponent_bstring, strcat(b_significant_bstring, strcat(b_guard_bstring, b_sticky_bstring))));
+      while length(a_ieee_bstring) < length(b_ieee_bstring)
+        a_ieee_bstring = strcat(a_ieee_bstring, "0");
+      endwhile
+    else # a_exponent < b_exponent
+      positions = b_exponent - a_exponent;
+      [a_exponent_bstring, a_significant_bstring, a_guard_bstring, a_sticky_bstring] = shift_right(positions, a_exponent_bstring, a_significant_bstring, a_guard_bstring);
+      a_ieee_bstring = strcat(a_sign_bstring, strcat(a_exponent_bstring, strcat(a_significant_bstring, strcat(a_guard_bstring, a_sticky_bstring))));
+      while length(b_ieee_bstring) < length(a_ieee_bstring)
+        b_ieee_bstring = strcat(b_ieee_bstring, "0");
+      endwhile
+    endif
+  # Same exponents. Correct strings size if needed (assign zero to missing guards and sticky bits)
+  else
+    a_ieee_bstring = strcat(a_sign_bstring, strcat(a_exponent_bstring, strcat(a_significant_bstring, a_guard_bstring)));
+    b_ieee_bstring = strcat(b_sign_bstring, strcat(b_exponent_bstring, strcat(b_significant_bstring, b_guard_bstring)));
+    while length(a_ieee_bstring) < 36
+      a_ieee_bstring = strcat(a_ieee_bstring, "0");
+    endwhile
+    while length(b_ieee_bstring) < 36
+      b_ieee_bstring = strcat(b_ieee_bstring, "0");
+    endwhile
+  endif
+
+  # Do subtraction operation. Select looking the mantissas.
+  if bin2dec(a_ieee_bstring(10:36)) >= bin2dec(b_ieee_bstring(10:36))
+    r_ieee_bstring = perform_subtraction(a_ieee_bstring, b_ieee_bstring);
+  else # bin2dec(b_ieee_bstring(10:36)) > bin2dec(a_ieee_bstring(10:36))
+    r_ieee_bstring = perform_subtraction(b_ieee_bstring, a_ieee_bstring);
+  endif
 endfunction
 
 # Perform addition operation between A and B binary IEEE strings
@@ -95,7 +217,6 @@ function r_ieee_bstring = perform_addition(a_ieee_bstring, b_ieee_bstring)
       r_exponent_bstring = strcat("0", r_exponent_bstring);
     endwhile
   else
-    r_significant_bstring
     r_guard_bstring = r_significant_bstring(25:26);
     r_significant_bstring = r_significant_bstring(2:24);
   endif
