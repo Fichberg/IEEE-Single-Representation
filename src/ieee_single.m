@@ -603,7 +603,7 @@ function [value_bstring, sign] = input_to_number(string)
     occ = strchr(string, '.');
     # Integer number
     if length(occ) == 0
-      value_string = is_numeric_input(string, true);
+      value_bstring = is_numeric_input(string, true);
     # Floating point number. Format accepted is [0-1]+\.[0-1]+
     elseif length(occ) == 1 && occ > 1 && occ < length(string)
       dec_string = is_numeric_input(substr(string, 1, occ - 1), true);
@@ -719,11 +719,9 @@ function print_word(ieee_string)
   sign = ieee_string(1);
   exponent = ieee_string(2:9);
   significant = ieee_string(10:32);
-  guard = ieee_string(33:34);
   printf("[ %c | ", sign);
   printf("%c ", exponent); printf("| ");
-  printf("%c ", significant); printf("] || Guard Bits: [");
-  printf(" %c ", guard);printf("]\n");
+  printf("%c ", significant); printf("]\n");
 endfunction
 
 # Check whether the string contains only the characters '0' or '1'. If not, terminates execution.
