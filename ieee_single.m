@@ -13,17 +13,127 @@ function main()
     a = scan_keyboard("Input value for A:\n>> ");
     [a_value_bstring, a_sign_bstring] = input_to_number(a);
     a_ieee_bstring = number_to_ieee_single(a_value_bstring, a_sign_bstring);
-    printf("A = "); print_word(a_ieee_bstring);
+    printf("A  = "); print_word(a_ieee_bstring);
 
     b = scan_keyboard("Input value for B:\n>> ");
     [b_value_bstring, b_sign_bstring] = input_to_number(b);
     b_ieee_bstring = number_to_ieee_single(b_value_bstring, b_sign_bstring);
-    printf("B = "); print_word(b_ieee_bstring);
+    printf("B  = "); print_word(b_ieee_bstring);
 
     op = scan_keyboard("Select an operation (+ or -):\n>> ");
-    r_ieee_string = operate(op, a_ieee_bstring, b_ieee_bstring);
-    printf("R = "); print_word(r_ieee_string);
+    r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
+    printf("RR = "); print_word(r_ieee_bstring);
+
+    [rd_ieee_bstring, ru_ieee_bstring, rn_ieee_bstring, rz_ieee_bstring] = perform_round(r_ieee_bstring);
+    printf("RD = "); print_word(rd_ieee_bstring);
+    printf("RU = "); print_word(ru_ieee_bstring);
+    printf("RN = "); print_word(rn_ieee_bstring);
+    printf("RZ = "); print_word(rz_ieee_bstring);
   endwhile
+endfunction
+
+# Perform one round operation (if needed)
+function [rd_ieee_bstring, ru_ieee_bstring, rn_ieee_bstring, rz_ieee_bstring] = perform_round(r_ieee_bstring)
+  # Round Down answer
+  rd_ieee_bstring = r_ieee_bstring;
+  rd_ieee_bstring(33) = "0"; rd_ieee_bstring(34) = "0";
+
+  # Round Up answer
+  aux = "";
+  carry = 0;
+  ru_significant_bstring = strcat("1", r_ieee_bstring(10:32));
+  adder_significant_bstring = "000000000000000000000001";
+  bit = 24;
+  while bit > 0
+    if ru_significant_bstring(bit) == "1" && adder_significant_bstring(bit) == "1"
+      if carry == 0
+        aux = strcat("0", aux);
+      else # carry == 1
+        aux = strcat("1", aux);
+      endif
+      carry = 1;
+    elseif (ru_significant_bstring(bit) == "1" && adder_significant_bstring(bit) == "0") || (ru_significant_bstring(bit) == "0" && adder_significant_bstring(bit) == "1")
+      if carry == 0
+        aux = strcat("1", aux);
+        carry = 0;
+      else # carry == 1
+        aux = strcat("0", aux);
+        carry = 1;
+      endif
+    else # ru_significant_bstring(bit) == "0" && adder_significant_bstring(bit) == "0"
+      if carry == 0
+        aux = strcat("0", aux);
+      else # carry == 1
+        aux = strcat("1", aux);
+      endif
+      carry = 0;
+    endif
+    bit--;
+  endwhile
+
+  if carry == 1
+    aux = strcat("1", aux);
+    aux = aux(2:24);
+    ru_exponent = bin2dec(r_ieee_bstring(2:9)) + 1;
+    ru_exponent_bstring = dec2bin(ru_exponent);
+    while length(ru_exponent_bstring) < 8
+      ru_exponent_bstring = strcat("0", ru_exponent_bstring);
+    endwhile
+    ru_ieee_bstring = strcat(r_ieee_bstring(1), strcat(ru_exponent_bstring, aux));
+    ru_ieee_bstring(33) = "0"; ru_ieee_bstring(34) = "0";
+  else
+    ru_ieee_bstring = strcat(r_ieee_bstring(1:9), aux);
+    ru_ieee_bstring(33) = "0"; ru_ieee_bstring(34) = "0";
+  endif
+
+  # Round to nearest
+  if bin2dec(ru_ieee_bstring(2:9)) != bin2dec(rd_ieee_bstring(2:9))
+    if bin2dec(ru_ieee_bstring(2:9)) > bin2dec(rd_ieee_bstring(2:9))
+      positions = bin2dec(ru_ieee_bstring(2:9)) - bin2dec(rd_ieee_bstring(2:9));
+      [rd_exponent_bstring, rd_significant_bstring, rd_guard_bstring, rd_sticky_bstring] = shift_right(positions, rd_ieee_bstring(2:9), strcat("1", rd_ieee_bstring(10:32)), rd_ieee_bstring(33:34));
+      rdn_ieee_bstring = strcat(r_ieee_bstring(1), strcat(rd_exponent_bstring, strcat(rd_significant_bstring, strcat(rd_guard_bstring, rd_sticky_bstring))));
+      run_ieee_bstring = ru_ieee_bstring;
+      while length(run_ieee_bstring) < length(rdn_ieee_bstring)
+        run_ieee_bstring = strcat(run_ieee_bstring, "0");
+      endwhile
+
+      rdn_ieee_bstring = strcat(rdn_ieee_bstring(1:9), substr(rdn_ieee_bstring, 11));
+      if(abs(bin2dec(rdn_ieee_bstring(10:32)) - bin2dec(r_ieee_bstring(10:32))) <= abs(bin2dec(run_ieee_bstring(10:32)) - bin2dec(r_ieee_bstring(10:32))))
+        rn_ieee_bstring = rd_ieee_bstring;
+      else
+        rn_ieee_bstring = ru_ieee_bstring;
+      endif
+    else
+      positions = bin2dec(rd_ieee_bstring(2:9)) - bin2dec(ru_ieee_bstring(2:9));
+      [ru_exponent_bstring, ru_significant_bstring, ru_guard_bstring, ru_sticky_bstring] = shift_right(positions, ru_ieee_bstring(2:9), strcat("1", ru_ieee_bstring(10:32)), ru_ieee_bstring(33:34));
+      run_ieee_bstring = strcat(r_ieee_bstring(1), strcat(ru_exponent_bstring, strcat(ru_significant_bstring, strcat(ru_guard_bstring, ru_sticky_bstring))));
+      rdn_ieee_bstring = rd_ieee_bstring;
+      while length(rdn_ieee_bstring) < length(run_ieee_bstring)
+        rdn_ieee_bstring = strcat(rdn_ieee_bstring, "0");
+      endwhile
+
+      run_ieee_bstring = strcat(run_ieee_bstring(1:9), substr(run_ieee_bstring, 11));
+      if(abs(bin2dec(rdn_ieee_bstring(10:32)) - bin2dec(r_ieee_bstring(10:32))) <= abs(bin2dec(run_ieee_bstring(10:32)) - bin2dec(r_ieee_bstring(10:32))))
+        rn_ieee_bstring = rd_ieee_bstring;
+      else
+        rn_ieee_bstring = ru_ieee_bstring;
+      endif
+    endif
+  else
+    if(abs(bin2dec(rd_ieee_bstring(10:32)) - bin2dec(r_ieee_bstring(10:32))) <= abs(bin2dec(ru_ieee_bstring(10:32)) - bin2dec(r_ieee_bstring(10:32))))
+      rn_ieee_bstring = rd_ieee_bstring;
+    else
+      rn_ieee_bstring = ru_ieee_bstring;
+    endif
+  endif
+
+  # Round to zero
+  if r_ieee_bstring(1) == "0" # Positive
+    rz_ieee_bstring = rd_ieee_bstring;
+  else # Negative
+    rz_ieee_bstring = ru_ieee_bstring;
+  endif
+
 endfunction
 
 # Perform subtraction operation between greater and smaller binary IEEE strings
@@ -90,9 +200,13 @@ function r_ieee_bstring = perform_subtraction(g_ieee_bstring, s_ieee_bstring)
          r_exponent_bstring = strcat("0", r_exponent_bstring);
        endwhile
     else
-      #TODO: string zero. IMPLEMENT ME
-      printf("IMPLEMENT ME STRING ZERO IN perform_subtraction\n");
-      exit;
+      r_guard_bstring = r_significant_bstring(24:25);
+      r_significant_bstring = r_significant_bstring(1:23);
+      r_exponent = bin2dec(r_exponent_bstring);
+      r_exponent_bstring = dec2bin(r_exponent);
+      while length(r_exponent_bstring) < 8
+         r_exponent_bstring = strcat("0", r_exponent_bstring);
+       endwhile
     endif
   else
     r_guard_bstring = r_significant_bstring(25:26);
@@ -325,14 +439,7 @@ function r_ieee_bstring = operate(op, a_ieee_bstring, b_ieee_bstring);
     else
       r_ieee_bstring = ieee_subtraction(a_ieee_bstring, b_ieee_bstring);
     endif
-
-    #r_ieee_bstring = perform_round(r_ieee_bstring);
   endif
-endfunction
-
-# Perform one round operation (if needed)
-function r_ieee_bstring = perform_round(r_ieee_bstring)
-  r_ieee_bstring = "";
 endfunction
 
 # Converts number to IEEE Single Format
