@@ -2,25 +2,32 @@
 
 function main(args)
   [polynomial, delta, output, width, height, max] = arguments(args);
-  polynomial
-  [x_r, x_i] = newton(polynomial, polyder(polynomial), 5, delta, max);
+  printf("Using polynomial:\np(x) = %s\n", polyout(polynomial, 'x'));
+  [x_r, x_i] = newton(polynomial, polyder(polynomial), 8 - 9i, delta, max);
 
 
 endfunction
 
 function [x_r, y_i] = newton(f, fder, x0, delta, max)
   x_now = x0;
+  x_r = y_i = Inf;
   x_next = x_now - (polyval(f, x_now) / polyval(fder, x_now));
 
   it = 0;
   while (it < max) && (abs(x_next - x_now) > delta)
-    x_now = x_next
-    x_next = x_now - (polyval(f, x_now) / polyval(fder, x_now))
-
-
+    x_now = x_next;
+    # Converging...
+    if (derivative = polyval(fder, x_now)) != 0
+      x_next = x_now - (polyval(f, x_now) / derivative);
+      x_r = real(x_next);
+      y_i = imag(x_next);
+    # Derivative equals zero. Method fails.
+    else
+      x_r = y_i = Inf;
+      break;
+    endif
     it++;
   endwhile
-
 endfunction
 
 # Extract values from CLI
@@ -36,7 +43,7 @@ function [polynomial, delta, output, width, heigth, max] = arguments(args)
     if strcmp("-p", args{i}) && (i + 1 <= length(args))
       # Not a number right after the parameter
       string = args{++i}; polynomial = [];
-      if length(string) > 1 && string(1) == '-' && all(isstrprop(string(2:length(string)), "digit"))
+      if length(string) > 1 && (string(1) == '-' || string(1) == '+') && all(isstrprop(string(2:length(string)), "digit"))
         string = string;
       elseif !all(isstrprop(args{i + 1}, "digit"))
         printf("Invalid input format. Was expecting a number after '-p' parameter. Terminating execution.");
@@ -47,7 +54,7 @@ function [polynomial, delta, output, width, heigth, max] = arguments(args)
       polynomial = [polynomial, str2num(string)]; i++;
       while i <= length(args)
         string = args{i};
-        if length(string) > 1 && string(1) == '-' && all(isstrprop(string(2:length(string)), "digit"))
+        if length(string) > 1 && (string(1) == '-' || string(1) == '+') && all(isstrprop(string(2:length(string)), "digit"))
           string = string;
         elseif all(isstrprop(string, "digit"))
           string = string;
