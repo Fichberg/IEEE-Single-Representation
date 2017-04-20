@@ -3,40 +3,47 @@
 function main(args)
   [polynomial, delta, output, width, height, max] = arguments(args);
   printf("Using polynomial:\np(x) = %s\n", polyout(polynomial, 'x'));
-  [x_r, x_i] = newton(polynomial, polyder(polynomial), 8 - 9i, delta, max);
+  [x_r, x_i] = newton(polynomial, polyder(polynomial), 1 + 11i, delta, max);
 
 
 endfunction
 
 function [x_r, y_i] = newton(f, fder, x0, delta, max)
   x_now = x0;
-  x_r = y_i = Inf;
-  x_next = x_now - (polyval(f, x_now) / polyval(fder, x_now));
+  x_r = y_i = gap = Inf;
 
-  it = 0;
-  while (it < max) && (abs(x_next - x_now) > delta)
-    x_now = x_next;
-    # Converging...
-    if (derivative = polyval(fder, x_now)) != 0
-      x_next = x_now - (polyval(f, x_now) / derivative);
-      x_r = real(x_next);
-      y_i = imag(x_next);
-    # Derivative equals zero. Method fails.
+  # Will do 'max' + 1 iterations. If 'it' reaches 'max', the method has failed to converge.
+  for it = 0:max
+    derivative_on_point = polyval(fder, x_now);
+
+    # Got a non-zero derivative
+    if derivative_on_point != 0
+      x_next = x_now - (polyval(f, x_now) / derivative_on_point);
+      if gap > abs(x_next - x_now)
+        gap = abs(x_next - x_now);
+        # We got a good aproximation already?
+        if gap <= delta
+          x_r = round(real(x_next));
+          y_i = round(imag(x_next));
+          break;
+        endif
+      endif
+      x_now = x_next;
+    # Derivative equals zero ===> Ggwp.
     else
       x_r = y_i = Inf;
       break;
     endif
-    it++;
-  endwhile
+  endfor
 endfunction
 
 # Extract values from CLI
 function [polynomial, delta, output, width, heigth, max] = arguments(args)
   # Default values
-  delta = 1e-8;
+  delta = 6e-8;
   output = strcat(pwd(), "/outputs/output.txt");
   width = heigth = 3;
-  max = 20;
+  max = 25;
 
   i = 1; p = 0;
   while i <= length(args)
@@ -55,15 +62,14 @@ function [polynomial, delta, output, width, heigth, max] = arguments(args)
       while i <= length(args)
         string = args{i};
         if length(string) > 1 && (string(1) == '-' || string(1) == '+') && all(isstrprop(string(2:length(string)), "digit"))
-          string = string;
+          polynomial = [polynomial, str2num(string)];
+          i++;
         elseif all(isstrprop(string, "digit"))
-          string = string;
+          polynomial = [polynomial, str2num(string)];
+          i++;
         else
-          printf("Invalid input format. Was expecting just numbers for '-p' parameter. Terminating execution.");
-          exit;
+          break
         endif
-        polynomial = [polynomial, str2num(string)];
-        i++;
       endwhile
       p = 1;
       continue;
