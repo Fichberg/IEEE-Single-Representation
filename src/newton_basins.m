@@ -3,10 +3,14 @@
 function main(args)
   [polynomial, delta, output, width, height, max] = arguments(args);
   printf("Using polynomial:\np(x) = %s\n", polyout(polynomial, 'x'));
-  [x_r, x_i] = newton(polynomial, polyder(polynomial), 1 + 11i, delta, max);
+  [x_r, y_i] = newton(polynomial, polyder(polynomial), 1 + 0.25i, delta, max);
 
+  
+  #abs(x_r + i*y_i)
 
 endfunction
+
+
 
 function [x_r, y_i] = newton(f, fder, x0, delta, max)
   x_now = x0;
@@ -23,8 +27,8 @@ function [x_r, y_i] = newton(f, fder, x0, delta, max)
         gap = abs(x_next - x_now);
         # We got a good aproximation already?
         if gap <= delta
-          x_r = round(real(x_next));
-          y_i = round(imag(x_next));
+          x_r = real(x_next);
+          y_i = imag(x_next);
           break;
         endif
       endif
