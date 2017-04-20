@@ -3,15 +3,60 @@
 function main(args)
   [polynomial, delta, output, width, height, max] = arguments(args);
   printf("Using polynomial:\np(x) = %s\n", polyout(polynomial, 'x'));
-  [x_r, y_i] = newton(polynomial, polyder(polynomial), 1 + 0.25i, delta, max);
-
-  
-  #abs(x_r + i*y_i)
-
+  convergences = newton_basins(polynomial, width, height, delta, max);
+  write_output(convergences, output);
 endfunction
 
+# Newton basins for root convergence.
+function convergences = newton_basins(f, width, height, delta, max)
+  step = 0.01;
+  fder = polyder(f);
 
+  # This, the image dimensions, represents the function domain
+  columns = -width:step:width;
+  lines = -height:step:height;
 
+  # Each root will be associated to an integer.
+  # Method fails will be associated to the integer zero.
+  integer = 0;
+
+  # Roots. Helps keeping track of roots and associated integers. Matrix with format (each row)
+  # [root_real_part, root_imaginary_part, associated_integer]
+  roots = [[Inf, Inf], integer++];
+
+  # Coordinates (of pixels) and integers.
+  # Matrix with each row in the format [pixel_x_coord, pixel_y_coord, associated_integer]
+  convergences = [];
+
+  printf("Writing output. This is a good time to grab yourself a coffee...\n");
+  for pixel_x_coord = columns
+    for pixel_y_coord = lines
+      [x_r, y_i] = newton(f, fder, (pixel_x_coord + (pixel_y_coord * i)), delta, max);
+
+      # Method failed. Associate pixel to the integer zero
+      if abs(x_r + (y_i * i)) == Inf
+        convergences = [convergences; [pixel_x_coord, pixel_y_coord, 0]];
+      # Method got an answer
+      else
+        for row_index = 1:rows(roots)
+          #lower_limit = abs(roots(row_index, 1:3)(1) + (roots(row_index, 1:3)(2) * i)) - delta;
+          #upper_limit = abs(roots(row_index, 1:3)(1) + (roots(row_index, 1:3)(2) * i)) + delta;
+          # If the roots are really close, they must be associated to the same integer
+          #if abs(x_r + (y_i * i)) <= upper_limit && abs(x_r + (y_i * i)) >= lower_limit
+          if abs(x_r - roots(row_index, 1:3)(1)) <= delta && abs(y_i - roots(row_index, 1:3)(2)) <= delta
+            convergences = [convergences; [pixel_x_coord, pixel_y_coord, roots(row_index, 1:3)(3)]];
+            break;
+          elseif row_index == rows(roots)
+            convergences = [convergences; [pixel_x_coord, pixel_y_coord, integer]];
+            roots = [roots; [x_r, y_i], integer++];
+          endif
+        endfor
+      endif
+    endfor
+  endfor
+endfunction
+
+# Newton-Raphson method
 function [x_r, y_i] = newton(f, fder, x0, delta, max)
   x_now = x0;
   x_r = y_i = gap = Inf;
@@ -39,6 +84,17 @@ function [x_r, y_i] = newton(f, fder, x0, delta, max)
       break;
     endif
   endfor
+endfunction
+
+# Write output file to GNUPlot
+function write_output(convergences, output)
+  fd = fopen(output, "w");
+
+  convergences = sortrows(convergences, [1, 2]);
+  for i = 1:rows(convergences)
+    fprintf(fd, "%.8f %.8f %.8f\n", real(convergences(i, 1)), real(convergences(i, 2)), convergences(i, 3));
+  endfor
+  fclose(fd);
 endfunction
 
 # Extract values from CLI
